@@ -94,7 +94,7 @@ body {
     font-weight: normal;
 }
 
-/* --- NEW PIN PAD STYLES --- */
+/* --- PIN DOTS STYLES --- */
 .pin-display {
     display: flex;
     gap: 20px;
@@ -110,31 +110,40 @@ body {
     transition: background-color 0.2s;
 }
 
-/* This class gets added by Javascript when a number is tapped */
 .pin-dot.filled {
     background-color: white;
 }
 
+#error-message {
+    color: #ffaaaa;
+    font-size: 16px;
+    margin: 0 0 15px 0;
+    height: 20px; 
+}
+
+/* --- KEYPAD STYLES --- */
 .keypad {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
-    gap: 25px;
+    gap: 20px;
     margin-top: 10px;
+    width: 260px; /* Keeps everything centered nicely */
 }
 
 .key {
-    width: 75px;
-    height: 75px;
+    width: 70px;
+    height: 70px;
     border-radius: 50%;
     border: none;
-    background-color: rgba(255, 255, 255, 0.15);
+    background-color: rgba(255, 255, 255, 0.2);
     color: white;
-    font-size: 32px;
+    font-size: 28px;
     display: flex;
     justify-content: center;
     align-items: center;
     cursor: pointer;
     backdrop-filter: blur(5px);
+    margin: auto;
     transition: transform 0.1s, background-color 0.1s;
 }
 
@@ -148,7 +157,6 @@ body {
     background-color: transparent;
 }
 
-/* The squish animation when you tap a button! */
 .key:active:not(.empty) {
     transform: scale(0.85);
     background-color: rgba(255, 255, 255, 0.4);
@@ -187,13 +195,6 @@ body {
     display: none !important;
 }
 
-#error-message {
-    color: #ffaaaa;
-    font-size: 16px;
-    margin: 0 0 15px 0;
-    height: 20px; /* Keeps space so things don't jump around */
-}
-
 /* --- ANIMATIONS --- */
 .slide-up {
     animation: slideUpAnim 0.6s ease-in-out forwards;
@@ -217,7 +218,6 @@ body {
     animation: shakeAnim 0.4s ease-in-out;
 }
 
-/* The animation for a wrong password */
 @keyframes shakeAnim {
     0%, 100% { transform: translateX(0); }
     20%, 60% { transform: translateX(-15px); }
