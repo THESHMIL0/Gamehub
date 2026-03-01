@@ -34,10 +34,21 @@
             z-index: 10;
         }
 
-        /* The Scoreboard */
+        /* --- NEW: Turn Indicator --- */
+        #turn-indicator {
+            margin-top: 10px;
+            font-size: 22px;
+            font-weight: bold;
+            padding: 10px 25px;
+            border-radius: 25px;
+            background-color: #f2e3c6; /* Starts with Player 1's color */
+            color: #111;
+            transition: background-color 0.3s, color 0.3s;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+        }
+
         .scoreboard {
-            position: absolute;
-            top: 20px;
+            margin-top: 15px;
             display: flex;
             gap: 20px;
             font-size: 18px;
@@ -51,17 +62,16 @@
         .score-black { color: #aaaaaa; }
 
         canvas {
-            background-color: #e6b981; /* Lighter wood color */
-            border: 15px solid #4a2f1d; /* Dark thick wood border */
+            background-color: #e6b981; 
+            border: 15px solid #4a2f1d; 
             border-radius: 15px;
             box-shadow: 0 10px 30px rgba(0,0,0,0.8);
             touch-action: none;
-            margin-top: 30px;
+            margin-top: 20px;
         }
 
-        /* The Striker Slider Controls */
         .controls {
-            margin-top: 20px;
+            margin-top: 15px;
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -84,9 +94,11 @@
 
     <button id="back-btn" onclick="window.location.href='../index.html'">🔙 Phone</button>
 
+    <div id="turn-indicator">⚪ Player 1's Turn</div>
+
     <div class="scoreboard">
-        <div class="score-white">⚪ White: <span id="score-w">0</span></div>
-        <div class="score-black">⚫ Black: <span id="score-b">0</span></div>
+        <div class="score-white">⚪ P1: <span id="score-w">0</span></div>
+        <div class="score-black">⚫ P2: <span id="score-b">0</span></div>
     </div>
     
     <canvas id="gameCanvas" width="340" height="340"></canvas>
@@ -100,18 +112,23 @@
         const canvas = document.getElementById("gameCanvas");
         const ctx = canvas.getContext("2d");
         const slider = document.getElementById("striker-slider");
+        const turnIndicator = document.getElementById("turn-indicator");
 
-        // Game Variables
-        const friction = 0.985; // Slightly smoother sliding
+        const friction = 0.985; 
         const boardSize = canvas.width;
-        const pocketRadius = 22; // Slightly smaller, more realistic pockets
+        const pocketRadius = 22; 
         
         let isDragging = false;
         let dragStartX, dragStartY;
         let scoreWhite = 0;
         let scoreBlack = 0;
 
-        // Piece Class
+        // --- NEW GAME RULE VARIABLES ---
+        let currentPlayer = 1; // 1 for White, 2 for Black
+        let shotTaken = false; // Tracks if we just hit the striker
+        let pocketedThisTurn = false; // Tracks if we scored this turn
+        let isStrikerFoul = false; // Tracks if the striker fell in
+
         class Piece {
             constructor(x, y, radius, color, mass, type) {
                 this.x = x;
@@ -119,7 +136,7 @@
                 this.radius = radius;
                 this.color = color;
                 this.mass = mass;
-                this.type = type; // "striker", "queen", "white", "black"
+                this.type = type; 
                 this.vx = 0; 
                 this.vy = 0; 
                 this.active = true; 
@@ -132,7 +149,6 @@
                 ctx.fillStyle = this.color;
                 ctx.fill();
                 
-                // Add a cool inner ring to the coins for detail
                 ctx.beginPath();
                 ctx.arc(this.x, this.y, this.radius * 0.6, 0, Math.PI * 2);
                 ctx.strokeStyle = "rgba(0,0,0,0.3)";
@@ -151,7 +167,6 @@
                 if (Math.abs(this.vx) < 0.05) this.vx = 0;
                 if (Math.abs(this.vy) < 0.05) this.vy = 0;
 
-                // Bounce off walls (taking border into account)
                 if (this.x - this.radius < 5) { this.x = this.radius + 5; this.vx *= -1; }
                 if (this.x + this.radius > boardSize - 5) { this.x = boardSize - this.radius - 5; this.vx *= -1; }
                 if (this.y - this.radius < 5) { this.y = this.radius + 5; this.vy *= -1; }
@@ -161,7 +176,6 @@
             }
 
             checkHoles() {
-                // Pockets are slightly inside the corners now
                 const holes = [
                     {x: 15, y: 15}, {x: boardSize - 15, y: 15}, 
                     {x: 15, y: boardSize - 15}, {x: boardSize - 15, y: boardSize - 15}
@@ -175,84 +189,76 @@
                     if (distance < pocketRadius) {
                         this.active = false; 
                         
-                        // Update Scoreboard
+                        // --- NEW RULES LOGIC ---
                         if (this.type === "white") {
+                            if (currentPlayer === 1) pocketedThisTurn = true; // P1 scored their own coin
                             scoreWhite++;
                             document.getElementById("score-w").innerText = scoreWhite;
                         } else if (this.type === "black") {
+                            if (currentPlayer === 2) pocketedThisTurn = true; // P2 scored their own coin
                             scoreBlack++;
                             document.getElementById("score-b").innerText = scoreBlack;
-                        }
-
-                        // Reset Striker
-                        if (this.type === "striker") {
-                            setTimeout(resetStriker, 500);
+                        } else if (this.type === "striker") {
+                            isStrikerFoul = true; // Oh no, penalty!
+                            
+                            // Deduct 1 point from the player who made the foul
+                            if (currentPlayer === 1) {
+                                scoreWhite = Math.max(0, scoreWhite - 1); // Can't go below 0
+                                document.getElementById("score-w").innerText = scoreWhite;
+                            } else {
+                                scoreBlack = Math.max(0, scoreBlack - 1);
+                                document.getElementById("score-b").innerText = scoreBlack;
+                            }
                         }
                     }
                 }
             }
         }
 
-        // Setup the Board
         let pieces = [];
         const cx = boardSize / 2;
         const cy = boardSize / 2;
         
-        // 1. The Striker
         const striker = new Piece(cx, boardSize - 50, 16, "#ffffff", 2.5, "striker");
         pieces.push(striker);
 
-        // 2. The Queen (Center)
         pieces.push(new Piece(cx, cy, 12, "#ff3333", 1, "queen"));
         
-        // 3. Arrange 6 coins in a circle around the queen
-        const coinRadius = 12;
-        const ringDistance = 25; // Distance from center
         for (let i = 0; i < 6; i++) {
-            let angle = (Math.PI / 3) * i; // Divides a circle into 6 pieces
-            let px = cx + Math.cos(angle) * ringDistance;
-            let py = cy + Math.sin(angle) * ringDistance;
+            let angle = (Math.PI / 3) * i; 
+            let px = cx + Math.cos(angle) * 25;
+            let py = cy + Math.sin(angle) * 25;
             
-            // Alternate colors (even = white, odd = black)
             let color = (i % 2 === 0) ? "#f2e3c6" : "#222222";
             let type = (i % 2 === 0) ? "white" : "black";
-            pieces.push(new Piece(px, py, coinRadius, color, 1, type));
+            pieces.push(new Piece(px, py, 12, color, 1, type));
         }
 
-        // --- DRAWING REALISTIC BOARD MARKINGS ---
         function drawBoard() {
-            // Draw 4 corner holes
             ctx.fillStyle = "#111";
             const holes = [
                 {x: 15, y: 15}, {x: boardSize - 15, y: 15}, 
                 {x: 15, y: boardSize - 15}, {x: boardSize - 15, y: boardSize - 15}
             ];
             holes.forEach(hole => {
-                ctx.beginPath();
-                ctx.arc(hole.x, hole.y, pocketRadius, 0, Math.PI * 2);
-                ctx.fill();
+                ctx.beginPath(); ctx.arc(hole.x, hole.y, pocketRadius, 0, Math.PI * 2); ctx.fill();
             });
 
-            // Center Rings
             ctx.strokeStyle = "#4a2f1d";
             ctx.lineWidth = 2;
             ctx.beginPath(); ctx.arc(cx, cy, 45, 0, Math.PI * 2); ctx.stroke();
             ctx.beginPath(); ctx.arc(cx, cy, 10, 0, Math.PI * 2); ctx.fillStyle = "#4a2f1d"; ctx.fill();
 
-            // Striker Baselines (Top and Bottom)
             ctx.lineWidth = 1.5;
-            // Bottom line (where we shoot from)
             ctx.strokeRect(50, boardSize - 60, boardSize - 100, 20);
             ctx.beginPath(); ctx.arc(50, boardSize - 50, 10, 0, Math.PI * 2); ctx.fillStyle = "#ff3333"; ctx.fill();
             ctx.beginPath(); ctx.arc(boardSize - 50, boardSize - 50, 10, 0, Math.PI * 2); ctx.fill();
             
-            // Top line (just for visuals)
             ctx.strokeRect(50, 40, boardSize - 100, 20);
             ctx.beginPath(); ctx.arc(50, 50, 10, 0, Math.PI * 2); ctx.fill();
             ctx.beginPath(); ctx.arc(boardSize - 50, 50, 10, 0, Math.PI * 2); ctx.fill();
         }
 
-        // --- PHYSICS: COLLISIONS ---
         function checkCollisions() {
             for (let i = 0; i < pieces.length; i++) {
                 for (let j = i + 1; j < pieces.length; j++) {
@@ -284,7 +290,6 @@
             }
         }
 
-        // Check if all pieces have stopped moving
         function isBoardStill() {
             for (let piece of pieces) {
                 if (Math.abs(piece.vx) > 0 || Math.abs(piece.vy) > 0) return false;
@@ -300,26 +305,41 @@
             striker.active = true;
         }
 
-        // --- SLIDER LOGIC ---
+        function switchTurn() {
+            currentPlayer = currentPlayer === 1 ? 2 : 1;
+            
+            if (currentPlayer === 1) {
+                turnIndicator.innerText = "⚪ Player 1's Turn";
+                turnIndicator.style.backgroundColor = "#f2e3c6";
+                turnIndicator.style.color = "#111";
+            } else {
+                turnIndicator.innerText = "⚫ Player 2's Turn";
+                turnIndicator.style.backgroundColor = "#222222";
+                turnIndicator.style.color = "#fff";
+            }
+        }
+
         slider.addEventListener("input", function() {
-            // Only move the striker if it's currently our turn and everything is stopped
             if (striker.active && isBoardStill()) {
                 striker.x = parseInt(this.value);
-                striker.y = boardSize - 50; // Lock it to the baseline
+                striker.y = boardSize - 50; 
             }
         });
 
-        // --- MAIN GAME LOOP ---
         function gameLoop() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             drawBoard();
 
-            // Draw Aiming Line
             if (isDragging && striker.active) {
                 ctx.beginPath();
                 ctx.moveTo(striker.x, striker.y);
-                let aimX = striker.x + (striker.x - dragStartX) * 2;
-                let aimY = striker.y + (striker.y - dragStartY) * 2;
+                
+                // Show power based on pull distance
+                let pullX = striker.x - dragStartX;
+                let pullY = striker.y - dragStartY;
+                let aimX = striker.x + pullX * 2;
+                let aimY = striker.y + pullY * 2;
+                
                 ctx.lineTo(aimX, aimY);
                 ctx.strokeStyle = "rgba(255, 255, 255, 0.8)";
                 ctx.lineWidth = 4;
@@ -332,15 +352,25 @@
             checkCollisions();
             pieces.forEach(piece => piece.draw());
 
-            // Check if we need to reset the striker for the next turn
-            if (striker.active && isBoardStill() && striker.y !== boardSize - 50 && !isDragging) {
+            // --- NEW: Turn Manager ---
+            // When all coins stop moving AFTER a shot was taken
+            if (shotTaken && isBoardStill()) {
+                
+                // If they missed or fouled, change the player's turn
+                if (!pocketedThisTurn || isStrikerFoul) {
+                    switchTurn();
+                }
+
+                // Reset trackers for the next shot
+                pocketedThisTurn = false;
+                isStrikerFoul = false;
+                shotTaken = false; 
                 resetStriker();
             }
 
             requestAnimationFrame(gameLoop);
         }
 
-        // --- CONTROLS ---
         function getMousePos(evt) {
             const rect = canvas.getBoundingClientRect();
             const clientX = evt.touches ? evt.touches[0].clientX : evt.clientX;
@@ -384,12 +414,14 @@
             let pullX = striker.x - dragStartX;
             let pullY = striker.y - dragStartY;
             
-            // Limits the max power so the striker doesn't break the physics
             let power = Math.min(Math.sqrt(pullX*pullX + pullY*pullY), 100);
             let angle = Math.atan2(pullY, pullX);
 
             striker.vx = Math.cos(angle) * power * 0.2;
             striker.vy = Math.sin(angle) * power * 0.2;
+            
+            // Tell the game loop a shot was fired!
+            shotTaken = true;
         }
 
         gameLoop();
