@@ -70,7 +70,7 @@
             }
         }
 
-        const friction = 0.985, restitution = 0.85, boardSize = canvas.width, pocketRadius = 22, maxScore = 9; 
+        const friction = 0.98, restitution = 0.85, boardSize = canvas.width, pocketRadius = 22, maxScore = 9; 
         let isDragging = false, dragStartX, dragStartY, scoreWhite = 0, scoreBlack = 0, gameIsOver = false;
         let currentPlayer = 1, shotTaken = false, pocketedThisTurn = false, isStrikerFoul = false; 
 
@@ -157,13 +157,23 @@
                 for (let j = i + 1; j < pieces.length; j++) {
                     let p1 = pieces[i], p2 = pieces[j];
                     if (!p1.active || !p2.active) continue;
+                    
                     let dx = p2.x - p1.x, dy = p2.y - p1.y, distance = Math.sqrt(dx * dx + dy * dy);
+                    
                     if (distance < p1.radius + p2.radius) {
                         let overlap = (p1.radius + p2.radius) - distance, nx = dx / distance, ny = dy / distance;
-                        p1.x -= nx * overlap / 2; p2.x += nx * overlap / 2;
-                        let velAlongNormal = (p1.vx - p2.vx) * nx + (p1.vy - p2.vy) * ny;
+                        
+                        let totalMass = p1.mass + p2.mass;
+                        p1.x -= nx * overlap * (p2.mass / totalMass);
+                        p1.y -= ny * overlap * (p2.mass / totalMass);
+                        p2.x += nx * overlap * (p1.mass / totalMass);
+                        p2.y += ny * overlap * (p1.mass / totalMass);
+
+                        let velAlongNormal = (p2.vx - p1.vx) * nx + (p2.vy - p1.vy) * ny;
                         if (velAlongNormal > 0) continue;
+                        
                         if (Math.abs(velAlongNormal) > 0.5) playSound('hit');
+                        
                         let j_impulse = -(1 + restitution) * velAlongNormal / (1/p1.mass + 1/p2.mass);
                         p1.vx -= (j_impulse * nx) / p1.mass; p1.vy -= (j_impulse * ny) / p1.mass;
                         p2.vx += (j_impulse * nx) / p2.mass; p2.vy += (j_impulse * ny) / p2.mass;
@@ -173,6 +183,7 @@
         }
 
         function isBoardStill() { return pieces.every(p => Math.abs(p.vx) === 0 && Math.abs(p.vy) === 0); }
+        
         function switchTurn() {
             currentPlayer = currentPlayer === 1 ? 2 : 1;
             turnIndicator.innerText = currentPlayer === 1 ? "⚪ Player 1 (Bottom)" : "⚫ Player 2 (Top)";
@@ -180,27 +191,35 @@
             turnIndicator.style.color = currentPlayer === 1 ? "#111" : "#fff";
             slider.value = 170; 
         }
+        
         function resetStriker() {
-            striker.x = parseInt(slider.value); striker.y = (currentPlayer === 1) ? (boardSize - 50) : 50; 
+            striker.x = parseInt(slider.value); 
+            striker.y = (currentPlayer === 1) ? (boardSize - 50) : 50; 
             striker.vx = 0; striker.vy = 0; striker.active = true;
         }
+
         function checkWin() {
             if (scoreWhite >= maxScore) { winnerText.innerText = "⚪ Player 1 Wins! 🎉"; gameOverScreen.classList.remove("hidden"); gameIsOver = true; } 
             else if (scoreBlack >= maxScore) { winnerText.innerText = "⚫ Player 2 Wins! 🎉"; gameOverScreen.classList.remove("hidden"); gameIsOver = true; }
         }
 
         slider.addEventListener("input", function() {
-            if (striker.active && isBoardStill() && !gameIsOver) { striker.x = parseInt(this.value); striker.y = (currentPlayer === 1) ? (boardSize - 50) : 50; }
+            if (striker.active && isBoardStill() && !gameIsOver) { 
+                striker.x = parseInt(this.value); 
+                striker.y = (currentPlayer === 1) ? (boardSize - 50) : 50; 
+            }
         });
 
         function gameLoop() {
             if (gameIsOver) return; 
             ctx.clearRect(0, 0, canvas.width, canvas.height); drawBoard();
+            
             if (isDragging && striker.active) {
                 ctx.shadowColor = "transparent"; ctx.beginPath(); ctx.moveTo(striker.x, striker.y);
                 ctx.lineTo(striker.x + (striker.x - dragStartX) * 2, striker.y + (striker.y - dragStartY) * 2);
                 ctx.strokeStyle = "rgba(255, 255, 255, 0.8)"; ctx.lineWidth = 4; ctx.setLineDash([8, 8]); ctx.stroke(); ctx.setLineDash([]); 
             }
+            
             pieces.forEach(p => p.update()); checkCollisions(); pieces.forEach(p => p.draw());
 
             if (shotTaken && isBoardStill()) {
@@ -221,12 +240,14 @@
             const pos = getMousePos(e);
             if (Math.sqrt((pos.x - striker.x)**2 + (pos.y - striker.y)**2) <= striker.radius * 2) { isDragging = true; dragStartX = pos.x; dragStartY = pos.y; }
         }
+        
         function drag(e) { if (!isDragging) return; e.preventDefault(); const pos = getMousePos(e); dragStartX = pos.x; dragStartY = pos.y; }
+        
         function endDrag(e) {
             if (!isDragging) return; isDragging = false;
             let pullX = striker.x - dragStartX, pullY = striker.y - dragStartY;
             let power = Math.min(Math.sqrt(pullX*pullX + pullY*pullY), 100), angle = Math.atan2(pullY, pullX);
-            striker.vx = Math.cos(angle) * power * 0.2; striker.vy = Math.sin(angle) * power * 0.2; shotTaken = true;
+            striker.vx = Math.cos(angle) * power * 0.15; striker.vy = Math.sin(angle) * power * 0.15; shotTaken = true;
         }
 
         canvas.addEventListener("mousedown", startDrag); canvas.addEventListener("touchstart", startDrag, {passive: false});
