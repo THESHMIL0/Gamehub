@@ -10,15 +10,19 @@
 
     <div class="phone-frame">
         
+        <div class="notch"></div>
+        <div class="status-bar">
+            <span>10:35</span> <span>📶 🔋</span> </div>
+
         <div id="lock-screen" class="screen">
-            <h2>Enter Password</h2>
-            <input type="password" id="password-input" placeholder="****">
+            <h1 id="lock-time">10:35</h1>
+            <h2>Enter Pin</h2>
+            <input type="password" id="password-input" placeholder="****" maxlength="4">
             <button onclick="checkPassword()">Unlock</button>
-            <p id="error-message" class="hidden">Wrong password, try again!</p>
+            <p id="error-message" class="hidden">Wrong pin! 😸</p>
         </div>
 
         <div id="home-screen" class="screen hidden">
-            <h3>My Games</h3>
             <div class="app-grid">
                 <a href="games/carrom.html" class="app-icon" style="background-color: #ff5722;">Carrom</a>
                 <a href="games/snake.html" class="app-icon" style="background-color: #4caf50;">Snake</a>
