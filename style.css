@@ -40,6 +40,8 @@ body {
     background-size: cover;
     background-position: center;
     position: relative;
+    display: flex;
+    justify-content: center;
 }
 
 .notch {
@@ -86,6 +88,7 @@ body {
     background-color: rgba(0, 0, 0, 0.6);
     backdrop-filter: blur(10px);
     color: white;
+    z-index: 5;
 }
 
 #lock-time {
@@ -94,7 +97,6 @@ body {
     font-weight: normal;
 }
 
-/* --- PIN DOTS STYLES --- */
 .pin-display {
     display: flex;
     gap: 20px;
@@ -121,13 +123,12 @@ body {
     height: 20px; 
 }
 
-/* --- KEYPAD STYLES --- */
 .keypad {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
     gap: 20px;
     margin-top: 10px;
-    width: 260px; /* Keeps everything centered nicely */
+    width: 260px; 
 }
 
 .key {
@@ -162,7 +163,7 @@ body {
     background-color: rgba(255, 255, 255, 0.4);
 }
 
-/* --- APP GRID STYLES --- */
+/* --- UPDATED APP STYLES --- */
 .app-grid {
     display: grid;
     grid-template-columns: repeat(4, 1fr); 
@@ -177,18 +178,50 @@ body {
     height: 65px;
     color: white;
     display: flex;
+    flex-direction: column; /* Stacks emoji and text */
     justify-content: center;
     align-items: center;
     border-radius: 18px;
     text-decoration: none;
-    font-size: 13px;
+    font-size: 11px; /* Smaller text */
     font-weight: bold;
     box-shadow: 0 4px 10px rgba(0,0,0,0.3);
     transition: transform 0.2s;
 }
 
+.app-icon span {
+    font-size: 24px; /* Big emoji */
+    margin-bottom: 2px;
+}
+
 .app-icon:hover {
     transform: scale(1.1);
+}
+
+/* --- NEW DOCK & HOME BAR --- */
+.dock {
+    position: absolute;
+    bottom: 40px; /* Sits right above the home bar */
+    width: 90%;
+    background-color: rgba(255, 255, 255, 0.25);
+    backdrop-filter: blur(15px); /* Glass effect */
+    border-radius: 30px;
+    padding: 15px;
+    display: flex;
+    justify-content: space-around;
+    box-sizing: border-box;
+}
+
+.home-bar {
+    position: absolute;
+    bottom: 8px;
+    width: 35%;
+    height: 5px;
+    background-color: white;
+    border-radius: 10px;
+    cursor: pointer;
+    z-index: 50;
+    box-shadow: 0 0 5px rgba(0,0,0,0.5);
 }
 
 .hidden {
