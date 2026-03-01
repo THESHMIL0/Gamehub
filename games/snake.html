@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Snakes & Ladders Pro</title>
+    <style>
+        body { margin: 0; padding: 0; background-color: #1a1a1a; display: flex; flex-direction: column; justify-content: center; align-items: center; height: 100vh; color: white; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; overflow: hidden; }
+        #back-btn { position: absolute; top: 15px; left: 15px; padding: 8px 15px; background-color: rgba(255, 255, 255, 0.2); color: white; border: none; border-radius: 20px; font-weight: bold; cursor: pointer; z-index: 50; }
+        
+        /* Currency UI */
+        #coin-display { position: absolute; top: 15px; right: 15px; background: #ffeb3b; color: #333; padding: 5px 15px; border-radius: 20px; font-weight: bold; font-size: 14px; box-shadow: 0 2px 5px rgba(0,0,0,0.5); z-index: 50; }
+
+        /* Menus */
+        .screen { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background-color: #1a1a1a; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 40; }
+        .screen h1 { font-size: 36px; color: #4caf50; margin-bottom: 20px; text-shadow: 0 4px 10px rgba(0,0,0,0.5); text-align: center;}
+        .screen button { margin: 10px; padding: 15px 30px; font-size: 16px; border-radius: 30px; border: none; background-color: #2196f3; color: white; font-weight: bold; width: 220px; box-shadow: 0 4px 10px rgba(0,0,0,0.3); transition: 0.2s; }
+        .screen button:active { transform: scale(0.95); }
+        .hidden { display: none !important; }
+
+        /* Game UI */
+        #game-ui { z-index: 10; display: flex; flex-direction: column; align-items: center; width: 100%; padding-top: 50px; }
+        #turn-indicator { margin-bottom: 10px; font-size: 18px; font-weight: bold; padding: 8px 20px; border-radius: 20px; background-color: #ff5722; color: white; transition: 0.3s; box-shadow: 0 4px 5px rgba(0,0,0,0.3); }
+        
+        canvas { background-color: #ffe0b2; border: 10px solid #5d4037; border-radius: 10px; box-shadow: 0 10px 20px rgba(0,0,0,0.6); touch-action: none; }
+        
+        /* Dice Controls */
+        .dice-container { margin-top: 15px; display: flex; flex-direction: column; align-items: center; }
+        #dice-btn { width: 80px; height: 80px; font-size: 40px; border-radius: 15px; background: white; color: black; border: 4px solid #ccc; font-weight: bold; cursor: pointer; display: flex; justify-content: center; align-items: center; box-shadow: 0 5px 15px rgba(0,0,0,0.5); transition: transform 0.1s; }
+        #dice-btn:active { transform: scale(0.9); }
+        .dice-rolling { animation: shake 0.3s infinite; }
+        @keyframes shake { 0% { transform: rotate(0deg); } 25% { transform: rotate(-15deg); } 50% { transform: rotate(0deg); } 75% { transform: rotate(15deg); } 100% { transform: rotate(0deg); } }
+        
+        #game-msg { margin-top: 10px; font-size: 14px; font-weight: bold; color: #ffeb3b; height: 20px; }
+    </style>
+</head>
+<body>
+    <button id="back-btn" onclick="goHome()">🔙 Phone</button>
+    <div id="coin-display">🪙 <span id="coins">0</span></div>
+
+    <div id="main-menu" class="screen">
+        <h1>🐍 Snakes<br>& Ladders 🪜</h1>
+        <button onclick="startGame(1)">🤖 1 Player (vs AI)</button>
+        <button onclick="startGame(2)">🧑‍🤝‍🧑 2 Players (Local)</button>
+        <button style="background-color: #ff9800;" onclick="showShop()">🛒 Avatar Shop</button>
+        <button style="background-color: #9c27b0;" onclick="dailySpin()">🎁 Daily Reward</button>
+    </div>
+
+    <div id="shop-menu" class="screen hidden">
+        <h1>Shop</h1>
+        <p>Buy new colors for Player 1!</p>
+        <button onclick="buyAvatar('#e91e63', 50)">Buy Pink (50 🪙)</button>
+        <button onclick="buyAvatar('#00bcd4', 100)">Buy Cyan (100 🪙)</button>
+        <button onclick="document.getElementById('shop-menu').classList.add('hidden'); document.getElementById('main-menu').classList.remove('hidden');" style="background-color: #777;">Back to Menu</button>
+    </div>
+
+    <div id="win-screen" class="screen hidden">
+        <h1 id="win-text">Player 1 Wins!</h1>
+        <p>Reward: +20 🪙</p>
+        <button onclick="location.reload()">Main Menu</button>
+    </div>
+
+    <div id="game-ui" class="hidden">
+        <div id="turn-indicator">Player 1's Turn</div>
+        <canvas id="gameCanvas" width="320" height="320"></canvas>
+        <div class="dice-container">
+            <button id="dice-btn" onclick="rollDice()">🎲</button>
+            <div id="game-msg">Roll the dice to start!</div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById("gameCanvas");
+        const ctx = canvas.getContext("2d");
+        const diceBtn = document.getElementById("dice-btn");
+        const turnIndicator = document.getElementById("turn-indicator");
+        const gameMsg = document.getElementById("game-msg");
+        const coinSpan = document.getElementById("coins");
+
+        // --- META GAME (Coins & Shop) ---
+        let coins = localStorage.getItem("snakeCoins") ? parseInt(localStorage.getItem("snakeCoins")) : 0;
+        let p1Color = localStorage.getItem("p1Color") || "#ff5722";
+        coinSpan.innerText = coins;
+
+        function saveCoins() { localStorage.setItem("snakeCoins", coins); coinSpan.innerText = coins; }
+        function showShop() { document.getElementById("main-menu").classList.add("hidden"); document.getElementById("shop-menu").classList.remove("hidden"); }
+        function buyAvatar(color, cost) {
+            if (coins >= cost) {
+                coins -= cost; saveCoins(); p1Color = color; localStorage.setItem("p1Color", color);
+                alert("Avatar purchased and equipped!");
+            } else { alert("Not enough coins!"); }
+        }
+        function dailySpin() {
+            let reward = Math.floor(Math.random() * 30) + 10;
+            coins += reward; saveCoins(); alert(`🎁 You won ${reward} coins! Come back tomorrow.`);
+        }
+        function goHome() { window.location.href = '../index.html'; }
+
+        // --- GRID ARCHITECTURE (10x10 Serpentine) ---
+        const gridSize = 10;
+        const cellSize = canvas.width / gridSize;
+        let cells = []; // Array to store exact X,Y of all 100 squares
+
+        function buildGrid() {
+            cells = [];
+            // Square 1 is index 0. We map 1 to 100.
+            for (let i = 0; i < 100; i++) {
+                let row = Math.floor(i / gridSize); 
+                let col = i % gridSize;
+                // Reverse direction for odd rows (Serpentine logic!)
+                if (row % 2 !== 0) col = gridSize - 1 - col;
+                
+                // Draw from bottom to top
+                let x = col * cellSize;
+                let y = canvas.height - ((row + 1) * cellSize);
+                
+                // Center coordinate for the token
+                cells[i + 1] = { x: x + cellSize/2, y: y + cellSize/2, drawX: x, drawY: y };
+            }
+        }
+
+        // --- SNAKES & LADDERS MAPPING ---
+        const ladders = { 4: 14, 9: 31, 20: 38, 28: 84, 40: 59, 51: 67, 63: 81, 71: 91 };
+        const snakes = { 17: 7, 54: 34, 62: 19, 64: 60, 87: 24, 93: 73, 95: 75, 99: 78 };
+        function drawBoard() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Draw Checkered Grid
+            for (let i = 1; i <= 100; i++) {
+                let cell = cells[i];
+                let row = Math.floor((i-1)/10);
+                let col = (i-1)%10;
+                ctx.fillStyle = (row + col) % 2 === 0 ? "#ffe0b2" : "#ffcc80";
+                ctx.fillRect(cell.drawX, cell.drawY, cellSize, cellSize);
+                
+                // Draw Numbers
+                ctx.fillStyle = "#5d4037"; ctx.font = "12px Arial";
+                ctx.fillText(i, cell.drawX + 4, cell.drawY + 14);
+            }
+
+            // Draw Ladders (Green Lines)
+            ctx.lineWidth = 6; ctx.strokeStyle = "rgba(76, 175, 80, 0.7)";
+            for (let [start, end] of Object.entries(ladders)) {
+                ctx.beginPath(); ctx.moveTo(cells[start].x, cells[start].y); ctx.lineTo(cells[end].x, cells[end].y); ctx.stroke();
+            }
+
+            // Draw Snakes (Red Wavy Lines)
+            ctx.strokeStyle = "rgba(244, 67, 54, 0.7)";
+            for (let [start, end] of Object.entries(snakes)) {
+                ctx.beginPath(); ctx.moveTo(cells[start].x, cells[start].y);
+                // Simple curve for snake
+                let midX = (cells[start].x + cells[end].x) / 2 + 20;
+                let midY = (cells[start].y + cells[end].y) / 2;
+                ctx.quadraticCurveTo(midX, midY, cells[end].x, cells[end].y); ctx.stroke();
+            }
+        }
+
+        // --- PLAYERS & SMOOTH MOVEMENT ---
+        let players = [];
+        let gameMode = 1; // 1 = AI, 2 = Local PvP
+        let currentPlayer = 0; // Index in players array
+        let isAnimating = false;
+
+        class Player {
+            constructor(name, color, isAI) {
+                this.name = name; this.color = color; this.isAI = isAI;
+                this.currentPos = 1; this.targetPos = 1;
+                this.x = 0; this.y = 0; // Pixel coordinates
+                this.path = []; // Squares to animate through
+            }
+            
+            draw(offset) {
+                // If game just started, snap to square 1
+                if (this.x === 0) { this.x = cells[1].x; this.y = cells[1].y; }
+                
+                ctx.shadowColor = "rgba(0,0,0,0.5)"; ctx.shadowBlur = 4;
+                ctx.beginPath();
+                // Offset slightly so P1 and P2 don't overlap completely
+                ctx.arc(this.x + offset, this.y + offset, 10, 0, Math.PI * 2);
+                ctx.fillStyle = this.color; ctx.fill();
+                ctx.strokeStyle = "white"; ctx.lineWidth = 2; ctx.stroke();
+                ctx.shadowColor = "transparent";
+            }
+
+            update() {
+                if (this.path.length > 0) {
+                    let nextSquare = this.path[0];
+                    let targetX = cells[nextSquare].x;
+                    let targetY = cells[nextSquare].y;
+                    
+                    // Move towards target smoothly (Interpolation)
+                    let dx = targetX - this.x; let dy = targetY - this.y;
+                    this.x += dx * 0.2; this.y += dy * 0.2;
+
+                    // If close enough, snap and move to next square in path
+                    if (Math.abs(dx) < 2 && Math.abs(dy) < 2) {
+                        this.x = targetX; this.y = targetY;
+                        this.currentPos = nextSquare;
+                        this.path.shift(); // Remove reached square
+                        
+                        // If path is finished, check snakes/ladders or turn end
+                        if (this.path.length === 0) {
+                            checkSnakesLadders(this);
+                        }
+                    }
+                }
+            }
+        }
+        function checkSnakesLadders(player) {
+            let pos = player.currentPos;
+            if (ladders[pos]) {
+                gameMsg.innerText = "🪜 Ladder! Going UP!";
+                player.path.push(ladders[pos]); // Animate to top
+                player.targetPos = ladders[pos];
+            } else if (snakes[pos]) {
+                gameMsg.innerText = "🐍 Oh no! A Snake!";
+                player.path.push(snakes[pos]); // Animate to bottom
+                player.targetPos = snakes[pos];
+            } else {
+                // Done moving completely
+                isAnimating = false;
+                checkWinCondition();
+            }
+        }
+
+        // --- GAME LOGIC ---
+        function startGame(mode) {
+            gameMode = mode;
+            buildGrid();
+            
+            players = [
+                new Player("Player 1", p1Color, false),
+                new Player(mode === 1 ? "Computer" : "Player 2", "#2196f3", mode === 1)
+            ];
+            
+            currentPlayer = 0;
+            document.getElementById("main-menu").classList.add("hidden");
+            document.getElementById("game-ui").classList.remove("hidden");
+            updateTurnUI();
+            requestAnimationFrame(gameLoop);
+        }
+
+        function rollDice() {
+            if (isAnimating || players[currentPlayer].isAI) return;
+            executeRoll();
+        }
+
+        function executeRoll() {
+            isAnimating = true;
+            diceBtn.classList.add("dice-rolling");
+            
+            // Simulate rolling time
+            setTimeout(() => {
+                diceBtn.classList.remove("dice-rolling");
+                let p = players[currentPlayer];
+                let roll = Math.floor(Math.random() * 6) + 1; // Anti-cheat RNG base
+                diceBtn.innerText = roll;
+                
+                gameMsg.innerText = `${p.name} rolled a ${roll}!`;
+
+                // Calculate target (Must be exact 100)
+                let newPos = p.currentPos + roll;
+                if (newPos <= 100) {
+                    p.targetPos = newPos;
+                    // Build path for smooth animation one square at a time
+                    for (let i = p.currentPos + 1; i <= newPos; i++) {
+                        p.path.push(i);
+                    }
+                } else {
+                    gameMsg.innerText = `Need exactly ${100 - p.currentPos} to win. Stays put!`;
+                    isAnimating = false;
+                }
+
+                // Wait for animation to finish before switching turns (handled in checkSnakesLadders/checkWin)
+                window.lastRoll = roll; // Store for 6-rule check
+            }, 600);
+        }
+
+        function checkWinCondition() {
+            let p = players[currentPlayer];
+            if (p.currentPos === 100) {
+                document.getElementById("game-ui").classList.add("hidden");
+                document.getElementById("win-screen").classList.remove("hidden");
+                document.getElementById("win-text").innerText = `${p.name} Wins! 🎉`;
+                
+                // Monetization/Retention: Give coins to winner!
+                if (!p.isAI || gameMode === 2) {
+                    coins += 20; saveCoins();
+                }
+                return;
+            }
+
+            // Rule: Roll a 6 gets another turn!
+            if (window.lastRoll === 6) {
+                gameMsg.innerText = "Rolled a 6! Extra Turn!";
+                if (p.isAI) setTimeout(executeRoll, 1000);
+            } else {
+                // Switch Turn
+                currentPlayer = (currentPlayer + 1) % players.length;
+                updateTurnUI();
+                
+                // AI Turn Architecture
+                if (players[currentPlayer].isAI) {
+                    gameMsg.innerText = "Computer is thinking...";
+                    setTimeout(executeRoll, 1500);
+                }
+            }
+        }
+
+        function updateTurnUI() {
+            let p = players[currentPlayer];
+            turnIndicator.innerText = `${p.name}'s Turn`;
+            turnIndicator.style.backgroundColor = p.color;
+            if (p.isAI) diceBtn.style.opacity = "0.5";
+            else diceBtn.style.opacity = "1";
+        }
+
+        function gameLoop() {
+            drawBoard();
+            // Draw players (offset slightly so they don't cover each other)
+            players[0].draw(-3);
+            players[0].update();
+            if (players.length > 1) {
+                players[1].draw(3);
+                players[1].update();
+            }
+            requestAnimationFrame(gameLoop);
+        }
+    </script>
+</body>
+</html>
