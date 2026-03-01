@@ -1,4 +1,3 @@
-// Variable to store the pin as the user types it
 let currentPin = "";
 
 function powerOn() {
@@ -32,35 +31,27 @@ function updateTime() {
     document.getElementById("lock-time").innerText = timeString;
 }
 
-// --- NEW KEYPAD LOGIC ---
-
-// This function runs every time you tap a number
 function pressKey(number) {
     if (currentPin.length < 4) {
-        currentPin += number; // Add the number to our pin
+        currentPin += number; 
         updateDots();
         
-        // Hide error message if they start typing again
         document.getElementById("error-message").classList.add("hidden");
         
-        // If they have typed 4 numbers, verify it automatically!
         if (currentPin.length === 4) {
-            setTimeout(verifyPin, 150); // Small delay so we can see the 4th dot fill up
+            setTimeout(verifyPin, 150); 
         }
     }
 }
 
-// This function runs when you tap the delete (⌫) button
 function deleteKey() {
     if (currentPin.length > 0) {
-        // Remove the last number from the pin
         currentPin = currentPin.slice(0, -1);
         updateDots();
     }
     document.getElementById("error-message").classList.add("hidden");
 }
 
-// This function changes the empty dots to filled dots
 function updateDots() {
     const dots = document.querySelectorAll(".pin-dot");
     dots.forEach((dot, index) => {
@@ -72,7 +63,6 @@ function updateDots() {
     });
 }
 
-// This function checks if the 4-digit pin is correct
 function verifyPin() {
     const errorMessage = document.getElementById("error-message");
     const lockScreen = document.getElementById("lock-screen");
@@ -80,7 +70,6 @@ function verifyPin() {
     const pinDotsContainer = document.getElementById("pin-dots");
 
     if (currentPin === "1234") {
-        // Success! Unlock the phone
         lockScreen.classList.add("slide-up");
         
         setTimeout(function() {
@@ -88,20 +77,35 @@ function verifyPin() {
             homeScreen.classList.remove("hidden");
             homeScreen.classList.add("fade-in");
             
-            // Reset pin in case we lock the phone later
             currentPin = "";
             updateDots();
         }, 600); 
     } else {
-        // Wrong Pin! Trigger the shake animation
         errorMessage.classList.remove("hidden");
         pinDotsContainer.classList.add("shake");
         
-        // Remove the shake class after it finishes, and clear the dots
         setTimeout(() => {
             pinDotsContainer.classList.remove("shake");
             currentPin = "";
             updateDots();
-        }, 400); // 400ms matches the CSS animation time
+        }, 400); 
     }
+}
+
+// --- NEW FUNCTION: Locks the phone when you tap the bottom bar ---
+function lockPhone() {
+    const lockScreen = document.getElementById("lock-screen");
+    const homeScreen = document.getElementById("home-screen");
+    
+    // Hide home screen and remove fade-in animation
+    homeScreen.classList.add("hidden");
+    homeScreen.classList.remove("fade-in");
+    
+    // Show lock screen and remove slide-up animation
+    lockScreen.classList.remove("hidden");
+    lockScreen.classList.remove("slide-up");
+    
+    // Reset the pin just in case
+    currentPin = "";
+    updateDots();
 }
