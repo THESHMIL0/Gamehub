@@ -1,17 +1,28 @@
 function checkPassword() {
-    // Get the value typed into the input box
     const password = document.getElementById("password-input").value;
     const errorMessage = document.getElementById("error-message");
+    const lockScreen = document.getElementById("lock-screen");
+    const homeScreen = document.getElementById("home-screen");
 
-    // Check if the password is exactly "1234"
     if (password === "1234") {
-        // Hide the lock screen
-        document.getElementById("lock-screen").classList.add("hidden");
+        // 1. Add the slide-up animation to the lock screen
+        lockScreen.classList.add("slide-up");
         
-        // Show the home screen
-        document.getElementById("home-screen").classList.remove("hidden");
+        // 2. Hide the error message just in case it was showing
+        errorMessage.classList.add("hidden");
+
+        // 3. Wait 600 milliseconds (0.6 seconds) for the animation to finish
+        setTimeout(function() {
+            // Hide the lock screen completely
+            lockScreen.classList.add("hidden");
+            
+            // Show the home screen and add the fade-in animation
+            homeScreen.classList.remove("hidden");
+            homeScreen.classList.add("fade-in");
+        }, 600); 
+
     } else {
-        // Show the error message if it's wrong
+        // Show error if password is wrong
         errorMessage.classList.remove("hidden");
     }
 }
