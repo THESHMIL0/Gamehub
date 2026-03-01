@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Carrom Pool Pro</title>
+    <title>Carrom Pool Ultra Pro</title>
     <style>
         body {
             margin: 0;
@@ -34,24 +34,23 @@
             z-index: 10;
         }
 
-        /* --- NEW: Turn Indicator --- */
         #turn-indicator {
             margin-top: 10px;
-            font-size: 22px;
+            font-size: 20px;
             font-weight: bold;
             padding: 10px 25px;
             border-radius: 25px;
-            background-color: #f2e3c6; /* Starts with Player 1's color */
+            background-color: #f2e3c6; 
             color: #111;
             transition: background-color 0.3s, color 0.3s;
             box-shadow: 0 4px 10px rgba(0,0,0,0.5);
         }
 
         .scoreboard {
-            margin-top: 15px;
+            margin-top: 10px;
             display: flex;
             gap: 20px;
-            font-size: 18px;
+            font-size: 16px;
             font-weight: bold;
             background-color: rgba(0, 0, 0, 0.5);
             padding: 10px 20px;
@@ -61,14 +60,55 @@
         .score-white { color: #eeeeee; }
         .score-black { color: #aaaaaa; }
 
+        .game-container {
+            position: relative;
+            margin-top: 15px;
+        }
+
         canvas {
             background-color: #e6b981; 
             border: 15px solid #4a2f1d; 
             border-radius: 15px;
             box-shadow: 0 10px 30px rgba(0,0,0,0.8);
             touch-action: none;
-            margin-top: 20px;
         }
+
+        /* --- NEW: Game Over Screen --- */
+        #game-over {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.8);
+            border-radius: 15px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 20;
+            backdrop-filter: blur(4px);
+        }
+
+        #game-over h2 {
+            font-size: 32px;
+            margin-bottom: 20px;
+            text-shadow: 0 2px 5px rgba(0,0,0,0.5);
+        }
+
+        #game-over button {
+            padding: 12px 25px;
+            font-size: 18px;
+            font-weight: bold;
+            border-radius: 25px;
+            border: none;
+            background-color: #4caf50;
+            color: white;
+            cursor: pointer;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+        }
+
+        .hidden { display: none !important; }
 
         .controls {
             margin-top: 15px;
@@ -97,11 +137,18 @@
     <div id="turn-indicator">⚪ Player 1's Turn</div>
 
     <div class="scoreboard">
-        <div class="score-white">⚪ P1: <span id="score-w">0</span></div>
-        <div class="score-black">⚫ P2: <span id="score-b">0</span></div>
+        <div class="score-white">⚪ P1: <span id="score-w">0</span>/9</div>
+        <div class="score-black">⚫ P2: <span id="score-b">0</span>/9</div>
     </div>
     
-    <canvas id="gameCanvas" width="340" height="340"></canvas>
+    <div class="game-container">
+        <canvas id="gameCanvas" width="340" height="340"></canvas>
+        
+        <div id="game-over" class="hidden">
+            <h2 id="winner-text">Player 1 Wins! 🎉</h2>
+            <button onclick="location.reload()">🔄 Play Again</button>
+        </div>
+    </div>
 
     <div class="controls">
         <label>Slide to position Striker</label>
@@ -113,21 +160,56 @@
         const ctx = canvas.getContext("2d");
         const slider = document.getElementById("striker-slider");
         const turnIndicator = document.getElementById("turn-indicator");
+        const gameOverScreen = document.getElementById("game-over");
+        const winnerText = document.getElementById("winner-text");
+
+        // --- NEW: Audio Setup ---
+        // This generates sounds without needing MP3 files!
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        
+        function playSound(type) {
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            
+            if (type === 'hit') {
+                // Short "clack" sound for collisions
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(400, audioCtx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(100, audioCtx.currentTime + 0.05);
+                gain.gain.setValueAtTime(0.5, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.05);
+                osc.start();
+                osc.stop(audioCtx.currentTime + 0.05);
+            } else if (type === 'pocket') {
+                // Deeper "thwump" sound for falling in a hole
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(200, audioCtx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(50, audioCtx.currentTime + 0.15);
+                gain.gain.setValueAtTime(0.8, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.15);
+                osc.start();
+                osc.stop(audioCtx.currentTime + 0.15);
+            }
+        }
 
         const friction = 0.985; 
         const boardSize = canvas.width;
         const pocketRadius = 22; 
+        const maxScore = 9; // Real carrom has 9 of each color
         
         let isDragging = false;
         let dragStartX, dragStartY;
         let scoreWhite = 0;
         let scoreBlack = 0;
+        let gameIsOver = false;
 
-        // --- NEW GAME RULE VARIABLES ---
-        let currentPlayer = 1; // 1 for White, 2 for Black
-        let shotTaken = false; // Tracks if we just hit the striker
-        let pocketedThisTurn = false; // Tracks if we scored this turn
-        let isStrikerFoul = false; // Tracks if the striker fell in
+        let currentPlayer = 1; 
+        let shotTaken = false; 
+        let pocketedThisTurn = false; 
+        let isStrikerFoul = false; 
 
         class Piece {
             constructor(x, y, radius, color, mass, type) {
@@ -151,7 +233,7 @@
                 
                 ctx.beginPath();
                 ctx.arc(this.x, this.y, this.radius * 0.6, 0, Math.PI * 2);
-                ctx.strokeStyle = "rgba(0,0,0,0.3)";
+                ctx.strokeStyle = "rgba(0,0,0,0.4)";
                 ctx.lineWidth = 1;
                 ctx.stroke();
             }
@@ -167,10 +249,15 @@
                 if (Math.abs(this.vx) < 0.05) this.vx = 0;
                 if (Math.abs(this.vy) < 0.05) this.vy = 0;
 
-                if (this.x - this.radius < 5) { this.x = this.radius + 5; this.vx *= -1; }
-                if (this.x + this.radius > boardSize - 5) { this.x = boardSize - this.radius - 5; this.vx *= -1; }
-                if (this.y - this.radius < 5) { this.y = this.radius + 5; this.vy *= -1; }
-                if (this.y + this.radius > boardSize - 5) { this.y = boardSize - this.radius - 5; this.vy *= -1; }
+                // Bounce off walls
+                let bounced = false;
+                if (this.x - this.radius < 5) { this.x = this.radius + 5; this.vx *= -1; bounced = true; }
+                if (this.x + this.radius > boardSize - 5) { this.x = boardSize - this.radius - 5; this.vx *= -1; bounced = true; }
+                if (this.y - this.radius < 5) { this.y = this.radius + 5; this.vy *= -1; bounced = true; }
+                if (this.y + this.radius > boardSize - 5) { this.y = boardSize - this.radius - 5; this.vy *= -1; bounced = true; }
+                
+                // Play a tiny sound if hitting a wall fast
+                if (bounced && (Math.abs(this.vx) > 2 || Math.abs(this.vy) > 2)) playSound('hit');
 
                 this.checkHoles();
             }
@@ -184,26 +271,24 @@
                 for (let hole of holes) {
                     let dx = this.x - hole.x;
                     let dy = this.y - hole.y;
-                    let distance = Math.sqrt(dx * dx + dy * dy);
-                    
-                    if (distance < pocketRadius) {
+                    if (Math.sqrt(dx * dx + dy * dy) < pocketRadius) {
                         this.active = false; 
+                        playSound('pocket'); // PLOP sound!
                         
-                        // --- NEW RULES LOGIC ---
                         if (this.type === "white") {
-                            if (currentPlayer === 1) pocketedThisTurn = true; // P1 scored their own coin
+                            if (currentPlayer === 1) pocketedThisTurn = true; 
                             scoreWhite++;
                             document.getElementById("score-w").innerText = scoreWhite;
+                            checkWin();
                         } else if (this.type === "black") {
-                            if (currentPlayer === 2) pocketedThisTurn = true; // P2 scored their own coin
+                            if (currentPlayer === 2) pocketedThisTurn = true; 
                             scoreBlack++;
                             document.getElementById("score-b").innerText = scoreBlack;
+                            checkWin();
                         } else if (this.type === "striker") {
-                            isStrikerFoul = true; // Oh no, penalty!
-                            
-                            // Deduct 1 point from the player who made the foul
+                            isStrikerFoul = true; 
                             if (currentPlayer === 1) {
-                                scoreWhite = Math.max(0, scoreWhite - 1); // Can't go below 0
+                                scoreWhite = Math.max(0, scoreWhite - 1); 
                                 document.getElementById("score-w").innerText = scoreWhite;
                             } else {
                                 scoreBlack = Math.max(0, scoreBlack - 1);
@@ -218,20 +303,33 @@
         let pieces = [];
         const cx = boardSize / 2;
         const cy = boardSize / 2;
+        const coinRadius = 11; // Slightly smaller to fit 19 coins
         
-        const striker = new Piece(cx, boardSize - 50, 16, "#ffffff", 2.5, "striker");
+        // 1. The Striker
+        const striker = new Piece(cx, boardSize - 50, 15, "#ffffff", 2.5, "striker");
         pieces.push(striker);
 
-        pieces.push(new Piece(cx, cy, 12, "#ff3333", 1, "queen"));
+        // 2. The Queen
+        pieces.push(new Piece(cx, cy, coinRadius, "#ff3333", 1, "queen"));
         
+        // 3. Inner Ring (6 coins)
         for (let i = 0; i < 6; i++) {
             let angle = (Math.PI / 3) * i; 
-            let px = cx + Math.cos(angle) * 25;
-            let py = cy + Math.sin(angle) * 25;
-            
+            let px = cx + Math.cos(angle) * 24;
+            let py = cy + Math.sin(angle) * 24;
             let color = (i % 2 === 0) ? "#f2e3c6" : "#222222";
             let type = (i % 2 === 0) ? "white" : "black";
-            pieces.push(new Piece(px, py, 12, color, 1, type));
+            pieces.push(new Piece(px, py, coinRadius, color, 1, type));
+        }
+
+        // 4. Outer Ring (12 coins)
+        for (let i = 0; i < 12; i++) {
+            let angle = (Math.PI / 6) * i; 
+            let px = cx + Math.cos(angle) * 48;
+            let py = cy + Math.sin(angle) * 48;
+            let color = (i % 2 === 0) ? "#222222" : "#f2e3c6"; // Alternating opposite to inner ring
+            let type = (i % 2 === 0) ? "black" : "white";
+            pieces.push(new Piece(px, py, coinRadius, color, 1, type));
         }
 
         function drawBoard() {
@@ -246,7 +344,7 @@
 
             ctx.strokeStyle = "#4a2f1d";
             ctx.lineWidth = 2;
-            ctx.beginPath(); ctx.arc(cx, cy, 45, 0, Math.PI * 2); ctx.stroke();
+            ctx.beginPath(); ctx.arc(cx, cy, 65, 0, Math.PI * 2); ctx.stroke();
             ctx.beginPath(); ctx.arc(cx, cy, 10, 0, Math.PI * 2); ctx.fillStyle = "#4a2f1d"; ctx.fill();
 
             ctx.lineWidth = 1.5;
@@ -271,6 +369,11 @@
                     let distance = Math.sqrt(dx * dx + dy * dy);
 
                     if (distance < p1.radius + p2.radius) {
+                        // Play hitting sound if they collide with some speed
+                        if (Math.abs(p1.vx - p2.vx) > 0.5 || Math.abs(p1.vy - p2.vy) > 0.5) {
+                            playSound('hit');
+                        }
+
                         let overlap = (p1.radius + p2.radius) - distance;
                         let nx = dx / distance;
                         let ny = dy / distance;
@@ -319,27 +422,37 @@
             }
         }
 
+        // --- NEW: Check for Winner ---
+        function checkWin() {
+            if (scoreWhite >= maxScore) {
+                winnerText.innerText = "⚪ Player 1 Wins! 🎉";
+                gameOverScreen.classList.remove("hidden");
+                gameIsOver = true;
+            } else if (scoreBlack >= maxScore) {
+                winnerText.innerText = "⚫ Player 2 Wins! 🎉";
+                gameOverScreen.classList.remove("hidden");
+                gameIsOver = true;
+            }
+        }
+
         slider.addEventListener("input", function() {
-            if (striker.active && isBoardStill()) {
+            if (striker.active && isBoardStill() && !gameIsOver) {
                 striker.x = parseInt(this.value);
                 striker.y = boardSize - 50; 
             }
         });
 
         function gameLoop() {
+            if (gameIsOver) return; // Stop the loop if someone won
+
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             drawBoard();
 
             if (isDragging && striker.active) {
                 ctx.beginPath();
                 ctx.moveTo(striker.x, striker.y);
-                
-                // Show power based on pull distance
-                let pullX = striker.x - dragStartX;
-                let pullY = striker.y - dragStartY;
-                let aimX = striker.x + pullX * 2;
-                let aimY = striker.y + pullY * 2;
-                
+                let aimX = striker.x + (striker.x - dragStartX) * 2;
+                let aimY = striker.y + (striker.y - dragStartY) * 2;
                 ctx.lineTo(aimX, aimY);
                 ctx.strokeStyle = "rgba(255, 255, 255, 0.8)";
                 ctx.lineWidth = 4;
@@ -352,16 +465,8 @@
             checkCollisions();
             pieces.forEach(piece => piece.draw());
 
-            // --- NEW: Turn Manager ---
-            // When all coins stop moving AFTER a shot was taken
             if (shotTaken && isBoardStill()) {
-                
-                // If they missed or fouled, change the player's turn
-                if (!pocketedThisTurn || isStrikerFoul) {
-                    switchTurn();
-                }
-
-                // Reset trackers for the next shot
+                if (!pocketedThisTurn || isStrikerFoul) switchTurn();
                 pocketedThisTurn = false;
                 isStrikerFoul = false;
                 shotTaken = false; 
@@ -386,10 +491,13 @@
         canvas.addEventListener("touchend", endDrag);
 
         function startDrag(e) {
-            if (!striker.active || !isBoardStill()) return;
+            if (!striker.active || !isBoardStill() || gameIsOver) return;
             e.preventDefault();
-            const pos = getMousePos(e);
             
+            // Unlocks audio context on first touch (browser requirement for sound)
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+
+            const pos = getMousePos(e);
             let dx = pos.x - striker.x;
             let dy = pos.y - striker.y;
             if (Math.sqrt(dx*dx + dy*dy) <= striker.radius * 2) {
@@ -413,14 +521,11 @@
             
             let pullX = striker.x - dragStartX;
             let pullY = striker.y - dragStartY;
-            
             let power = Math.min(Math.sqrt(pullX*pullX + pullY*pullY), 100);
             let angle = Math.atan2(pullY, pullX);
 
             striker.vx = Math.cos(angle) * power * 0.2;
             striker.vy = Math.sin(angle) * power * 0.2;
-            
-            // Tell the game loop a shot was fired!
             shotTaken = true;
         }
 
