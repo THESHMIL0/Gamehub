@@ -3,12 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Carrom Pool</title>
+    <title>Carrom Pool Pro</title>
     <style>
         body {
             margin: 0;
             padding: 0;
-            background-color: #111; /* Dark background */
+            background-color: #1a1a1a;
             display: flex;
             flex-direction: column;
             justify-content: center;
@@ -16,15 +16,14 @@
             height: 100vh;
             color: white;
             font-family: Arial, sans-serif;
-            overflow: hidden; /* Prevents scrolling */
+            overflow: hidden; 
         }
         
-        /* The Back Button */
         #back-btn {
             position: absolute;
             top: 20px;
             left: 20px;
-            padding: 10px 15px;
+            padding: 8px 15px;
             background-color: rgba(255, 255, 255, 0.2);
             color: white;
             border: none;
@@ -35,55 +34,95 @@
             z-index: 10;
         }
 
-        /* The Game Board */
-        canvas {
-            background-color: #f4a460; /* Wood color */
-            border: 10px solid #5c4033; /* Dark wood border */
-            border-radius: 10px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.8);
-            touch-action: none; /* Stops the browser from zooming when swiping */
+        /* The Scoreboard */
+        .scoreboard {
+            position: absolute;
+            top: 20px;
+            display: flex;
+            gap: 20px;
+            font-size: 18px;
+            font-weight: bold;
+            background-color: rgba(0, 0, 0, 0.5);
+            padding: 10px 20px;
+            border-radius: 20px;
         }
 
-        h1 {
-            position: absolute;
-            top: 60px;
-            font-size: 24px;
-            margin: 0;
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+        .score-white { color: #eeeeee; }
+        .score-black { color: #aaaaaa; }
+
+        canvas {
+            background-color: #e6b981; /* Lighter wood color */
+            border: 15px solid #4a2f1d; /* Dark thick wood border */
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+            touch-action: none;
+            margin-top: 30px;
+        }
+
+        /* The Striker Slider Controls */
+        .controls {
+            margin-top: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 300px;
+        }
+
+        .controls label {
+            font-size: 14px;
+            margin-bottom: 5px;
+            color: #ccc;
+        }
+
+        input[type=range] {
+            width: 100%;
+            cursor: pointer;
         }
     </style>
 </head>
 <body>
 
-    <button id="back-btn" onclick="window.location.href='../index.html'">🔙 Home</button>
+    <button id="back-btn" onclick="window.location.href='../index.html'">🔙 Phone</button>
 
-    <h1>Carrom Pool</h1>
+    <div class="scoreboard">
+        <div class="score-white">⚪ White: <span id="score-w">0</span></div>
+        <div class="score-black">⚫ Black: <span id="score-b">0</span></div>
+    </div>
     
-    <canvas id="gameCanvas" width="320" height="320"></canvas>
+    <canvas id="gameCanvas" width="340" height="340"></canvas>
+
+    <div class="controls">
+        <label>Slide to position Striker</label>
+        <input type="range" id="striker-slider" min="60" max="280" value="170">
+    </div>
 
     <script>
         const canvas = document.getElementById("gameCanvas");
         const ctx = canvas.getContext("2d");
+        const slider = document.getElementById("striker-slider");
 
-        // --- GAME VARIABLES ---
-        const friction = 0.98; // Slows things down over time
+        // Game Variables
+        const friction = 0.985; // Slightly smoother sliding
         const boardSize = canvas.width;
-        const pocketRadius = 25;
+        const pocketRadius = 22; // Slightly smaller, more realistic pockets
         
         let isDragging = false;
         let dragStartX, dragStartY;
+        let scoreWhite = 0;
+        let scoreBlack = 0;
 
-        // --- PIECES SETUP ---
+        // Piece Class
         class Piece {
-            constructor(x, y, radius, color, mass) {
+            constructor(x, y, radius, color, mass, type) {
                 this.x = x;
                 this.y = y;
                 this.radius = radius;
                 this.color = color;
                 this.mass = mass;
-                this.vx = 0; // Speed going left/right
-                this.vy = 0; // Speed going up/down
-                this.active = true; // Is it still on the board?
+                this.type = type; // "striker", "queen", "white", "black"
+                this.vx = 0; 
+                this.vy = 0; 
+                this.active = true; 
             }
 
             draw() {
@@ -92,101 +131,125 @@
                 ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
                 ctx.fillStyle = this.color;
                 ctx.fill();
-                ctx.strokeStyle = "#333";
-                ctx.lineWidth = 2;
+                
+                // Add a cool inner ring to the coins for detail
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius * 0.6, 0, Math.PI * 2);
+                ctx.strokeStyle = "rgba(0,0,0,0.3)";
+                ctx.lineWidth = 1;
                 ctx.stroke();
-                ctx.closePath();
             }
 
             update() {
                 if (!this.active) return;
                 
-                // Move the piece
                 this.x += this.vx;
                 this.y += this.vy;
-
-                // Apply friction
                 this.vx *= friction;
                 this.vy *= friction;
 
-                // Stop completely if moving very slowly
-                if (Math.abs(this.vx) < 0.1) this.vx = 0;
-                if (Math.abs(this.vy) < 0.1) this.vy = 0;
+                if (Math.abs(this.vx) < 0.05) this.vx = 0;
+                if (Math.abs(this.vy) < 0.05) this.vy = 0;
 
-                // Bounce off walls
-                if (this.x - this.radius < 0) { this.x = this.radius; this.vx *= -1; }
-                if (this.x + this.radius > boardSize) { this.x = boardSize - this.radius; this.vx *= -1; }
-                if (this.y - this.radius < 0) { this.y = this.radius; this.vy *= -1; }
-                if (this.y + this.radius > boardSize) { this.y = boardSize - this.radius; this.vy *= -1; }
+                // Bounce off walls (taking border into account)
+                if (this.x - this.radius < 5) { this.x = this.radius + 5; this.vx *= -1; }
+                if (this.x + this.radius > boardSize - 5) { this.x = boardSize - this.radius - 5; this.vx *= -1; }
+                if (this.y - this.radius < 5) { this.y = this.radius + 5; this.vy *= -1; }
+                if (this.y + this.radius > boardSize - 5) { this.y = boardSize - this.radius - 5; this.vy *= -1; }
 
-                // Check if it fell in a hole
                 this.checkHoles();
             }
 
             checkHoles() {
+                // Pockets are slightly inside the corners now
                 const holes = [
-                    {x: 0, y: 0}, {x: boardSize, y: 0}, 
-                    {x: 0, y: boardSize}, {x: boardSize, y: boardSize}
+                    {x: 15, y: 15}, {x: boardSize - 15, y: 15}, 
+                    {x: 15, y: boardSize - 15}, {x: boardSize - 15, y: boardSize - 15}
                 ];
                 
                 for (let hole of holes) {
                     let dx = this.x - hole.x;
                     let dy = this.y - hole.y;
                     let distance = Math.sqrt(dx * dx + dy * dy);
+                    
                     if (distance < pocketRadius) {
-                        this.active = false; // Hide the piece
+                        this.active = false; 
                         
-                        // If striker falls in, reset it!
-                        if (this === striker) {
-                            setTimeout(() => {
-                                striker.x = boardSize / 2;
-                                striker.y = boardSize - 50;
-                                striker.vx = 0;
-                                striker.vy = 0;
-                                striker.active = true;
-                            }, 1000);
+                        // Update Scoreboard
+                        if (this.type === "white") {
+                            scoreWhite++;
+                            document.getElementById("score-w").innerText = scoreWhite;
+                        } else if (this.type === "black") {
+                            scoreBlack++;
+                            document.getElementById("score-b").innerText = scoreBlack;
+                        }
+
+                        // Reset Striker
+                        if (this.type === "striker") {
+                            setTimeout(resetStriker, 500);
                         }
                     }
                 }
             }
         }
 
-        // Create our pieces
+        // Setup the Board
         let pieces = [];
+        const cx = boardSize / 2;
+        const cy = boardSize / 2;
         
-        // 1. The Striker (Bigger and heavier)
-        const striker = new Piece(boardSize / 2, boardSize - 50, 15, "#ffffff", 2);
+        // 1. The Striker
+        const striker = new Piece(cx, boardSize - 50, 16, "#ffffff", 2.5, "striker");
         pieces.push(striker);
 
-        // 2. The Queen (Red)
-        pieces.push(new Piece(boardSize / 2, boardSize / 2, 12, "#ff3333", 1));
+        // 2. The Queen (Center)
+        pieces.push(new Piece(cx, cy, 12, "#ff3333", 1, "queen"));
         
-        // 3. Some other coins
-        pieces.push(new Piece(boardSize / 2 - 25, boardSize / 2, 12, "#222222", 1)); // Black
-        pieces.push(new Piece(boardSize / 2 + 25, boardSize / 2, 12, "#eeeeee", 1)); // White
-        pieces.push(new Piece(boardSize / 2, boardSize / 2 - 25, 12, "#222222", 1)); // Black
-        pieces.push(new Piece(boardSize / 2, boardSize / 2 + 25, 12, "#eeeeee", 1)); // White
+        // 3. Arrange 6 coins in a circle around the queen
+        const coinRadius = 12;
+        const ringDistance = 25; // Distance from center
+        for (let i = 0; i < 6; i++) {
+            let angle = (Math.PI / 3) * i; // Divides a circle into 6 pieces
+            let px = cx + Math.cos(angle) * ringDistance;
+            let py = cy + Math.sin(angle) * ringDistance;
+            
+            // Alternate colors (even = white, odd = black)
+            let color = (i % 2 === 0) ? "#f2e3c6" : "#222222";
+            let type = (i % 2 === 0) ? "white" : "black";
+            pieces.push(new Piece(px, py, coinRadius, color, 1, type));
+        }
 
-        // --- DRAWING THE BOARD ---
+        // --- DRAWING REALISTIC BOARD MARKINGS ---
         function drawBoard() {
             // Draw 4 corner holes
-            ctx.fillStyle = "#222";
-            const corners = [
-                {x: 0, y: 0}, {x: boardSize, y: 0}, 
-                {x: 0, y: boardSize}, {x: boardSize, y: boardSize}
+            ctx.fillStyle = "#111";
+            const holes = [
+                {x: 15, y: 15}, {x: boardSize - 15, y: 15}, 
+                {x: 15, y: boardSize - 15}, {x: boardSize - 15, y: boardSize - 15}
             ];
-            corners.forEach(corner => {
+            holes.forEach(hole => {
                 ctx.beginPath();
-                ctx.arc(corner.x, corner.y, pocketRadius, 0, Math.PI * 2);
+                ctx.arc(hole.x, hole.y, pocketRadius, 0, Math.PI * 2);
                 ctx.fill();
             });
 
-            // Draw center circle
-            ctx.beginPath();
-            ctx.arc(boardSize / 2, boardSize / 2, 40, 0, Math.PI * 2);
-            ctx.strokeStyle = "rgba(0,0,0,0.2)";
+            // Center Rings
+            ctx.strokeStyle = "#4a2f1d";
             ctx.lineWidth = 2;
-            ctx.stroke();
+            ctx.beginPath(); ctx.arc(cx, cy, 45, 0, Math.PI * 2); ctx.stroke();
+            ctx.beginPath(); ctx.arc(cx, cy, 10, 0, Math.PI * 2); ctx.fillStyle = "#4a2f1d"; ctx.fill();
+
+            // Striker Baselines (Top and Bottom)
+            ctx.lineWidth = 1.5;
+            // Bottom line (where we shoot from)
+            ctx.strokeRect(50, boardSize - 60, boardSize - 100, 20);
+            ctx.beginPath(); ctx.arc(50, boardSize - 50, 10, 0, Math.PI * 2); ctx.fillStyle = "#ff3333"; ctx.fill();
+            ctx.beginPath(); ctx.arc(boardSize - 50, boardSize - 50, 10, 0, Math.PI * 2); ctx.fill();
+            
+            // Top line (just for visuals)
+            ctx.strokeRect(50, 40, boardSize - 100, 20);
+            ctx.beginPath(); ctx.arc(50, 50, 10, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.arc(boardSize - 50, 50, 10, 0, Math.PI * 2); ctx.fill();
         }
 
         // --- PHYSICS: COLLISIONS ---
@@ -201,16 +264,13 @@
                     let dy = p2.y - p1.y;
                     let distance = Math.sqrt(dx * dx + dy * dy);
 
-                    // If they are touching
                     if (distance < p1.radius + p2.radius) {
-                        // Push them apart so they don't get stuck inside each other
                         let overlap = (p1.radius + p2.radius) - distance;
                         let nx = dx / distance;
                         let ny = dy / distance;
                         p1.x -= nx * overlap / 2;
                         p2.x += nx * overlap / 2;
 
-                        // Transfer speed (Simple bouncy physics)
                         let kx = (p1.vx - p2.vx);
                         let ky = (p1.vy - p2.vy);
                         let p = 2 * (nx * kx + ny * ky) / (p1.mass + p2.mass);
@@ -224,67 +284,82 @@
             }
         }
 
+        // Check if all pieces have stopped moving
+        function isBoardStill() {
+            for (let piece of pieces) {
+                if (Math.abs(piece.vx) > 0 || Math.abs(piece.vy) > 0) return false;
+            }
+            return true;
+        }
+
+        function resetStriker() {
+            striker.x = parseInt(slider.value);
+            striker.y = boardSize - 50;
+            striker.vx = 0;
+            striker.vy = 0;
+            striker.active = true;
+        }
+
+        // --- SLIDER LOGIC ---
+        slider.addEventListener("input", function() {
+            // Only move the striker if it's currently our turn and everything is stopped
+            if (striker.active && isBoardStill()) {
+                striker.x = parseInt(this.value);
+                striker.y = boardSize - 50; // Lock it to the baseline
+            }
+        });
+
         // --- MAIN GAME LOOP ---
         function gameLoop() {
-            // Clear the canvas
             ctx.clearRect(0, 0, canvas.width, canvas.height);
-            
             drawBoard();
 
             // Draw Aiming Line
             if (isDragging && striker.active) {
                 ctx.beginPath();
                 ctx.moveTo(striker.x, striker.y);
-                // The line goes in the opposite direction of the pull
-                let aimX = striker.x + (striker.x - dragStartX);
-                let aimY = striker.y + (striker.y - dragStartY);
+                let aimX = striker.x + (striker.x - dragStartX) * 2;
+                let aimY = striker.y + (striker.y - dragStartY) * 2;
                 ctx.lineTo(aimX, aimY);
-                ctx.strokeStyle = "rgba(255, 255, 255, 0.5)";
-                ctx.lineWidth = 3;
-                ctx.setLineDash([5, 5]); // Dashed line
+                ctx.strokeStyle = "rgba(255, 255, 255, 0.8)";
+                ctx.lineWidth = 4;
+                ctx.setLineDash([8, 8]); 
                 ctx.stroke();
-                ctx.setLineDash([]); // Reset dash
+                ctx.setLineDash([]); 
             }
 
-            // Update and draw pieces
             pieces.forEach(piece => piece.update());
             checkCollisions();
             pieces.forEach(piece => piece.draw());
 
-            // Ask the browser to run this loop again for the next frame
+            // Check if we need to reset the striker for the next turn
+            if (striker.active && isBoardStill() && striker.y !== boardSize - 50 && !isDragging) {
+                resetStriker();
+            }
+
             requestAnimationFrame(gameLoop);
         }
 
         // --- CONTROLS ---
         function getMousePos(evt) {
             const rect = canvas.getBoundingClientRect();
-            // Works for both touch and mouse
             const clientX = evt.touches ? evt.touches[0].clientX : evt.clientX;
             const clientY = evt.touches ? evt.touches[0].clientY : evt.clientY;
-            return {
-                x: clientX - rect.left,
-                y: clientY - rect.top
-            };
+            return { x: clientX - rect.left, y: clientY - rect.top };
         }
 
         canvas.addEventListener("mousedown", startDrag);
         canvas.addEventListener("touchstart", startDrag, {passive: false});
-
         canvas.addEventListener("mousemove", drag);
         canvas.addEventListener("touchmove", drag, {passive: false});
-
         canvas.addEventListener("mouseup", endDrag);
         canvas.addEventListener("touchend", endDrag);
 
         function startDrag(e) {
-            if (!striker.active) return;
-            // Only allow dragging if the striker is completely stopped
-            if (Math.abs(striker.vx) > 0.1 || Math.abs(striker.vy) > 0.1) return;
-
+            if (!striker.active || !isBoardStill()) return;
             e.preventDefault();
             const pos = getMousePos(e);
             
-            // Check if user touched the striker
             let dx = pos.x - striker.x;
             let dy = pos.y - striker.y;
             if (Math.sqrt(dx*dx + dy*dy) <= striker.radius * 2) {
@@ -306,16 +381,17 @@
             if (!isDragging) return;
             isDragging = false;
             
-            // Calculate how far we pulled back
             let pullX = striker.x - dragStartX;
             let pullY = striker.y - dragStartY;
             
-            // Apply speed to the striker! (Multiplier makes it shoot faster)
-            striker.vx = pullX * 0.15;
-            striker.vy = pullY * 0.15;
+            // Limits the max power so the striker doesn't break the physics
+            let power = Math.min(Math.sqrt(pullX*pullX + pullY*pullY), 100);
+            let angle = Math.atan2(pullY, pullX);
+
+            striker.vx = Math.cos(angle) * power * 0.2;
+            striker.vy = Math.sin(angle) * power * 0.2;
         }
 
-        // Start the game!
         gameLoop();
     </script>
 </body>
