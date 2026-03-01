@@ -3,42 +3,67 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Carrom Pool Ultra Pro</title>
+    <title>Carrom Pool Ultimate</title>
     <style>
         body { margin: 0; padding: 0; background-color: #1a1a1a; display: flex; flex-direction: column; justify-content: center; align-items: center; height: 100vh; color: white; font-family: Arial, sans-serif; overflow: hidden; }
-        #back-btn { position: absolute; top: 20px; left: 20px; padding: 8px 15px; background-color: rgba(255, 255, 255, 0.2); color: white; border: none; border-radius: 20px; font-weight: bold; cursor: pointer; backdrop-filter: blur(5px); z-index: 10; }
-        #turn-indicator { margin-top: 10px; font-size: 18px; font-weight: bold; padding: 10px 25px; border-radius: 25px; background-color: #f2e3c6; color: #111; transition: background-color 0.3s, color 0.3s; box-shadow: 0 4px 10px rgba(0,0,0,0.5); }
+        #back-btn { position: absolute; top: 20px; left: 20px; padding: 8px 15px; background-color: rgba(255, 255, 255, 0.2); color: white; border: none; border-radius: 20px; font-weight: bold; cursor: pointer; backdrop-filter: blur(5px); z-index: 50; }
+        
+        /* NEW: Main Menu Styles */
+        #main-menu { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background-color: #1a1a1a; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 40; }
+        #main-menu h1 { font-size: 40px; color: #f2e3c6; margin-bottom: 30px; text-shadow: 0 4px 10px rgba(0,0,0,0.5); }
+        #main-menu button { margin: 10px; padding: 15px 30px; font-size: 18px; border-radius: 30px; border: none; background-color: #ff5722; color: white; cursor: pointer; font-weight: bold; width: 250px; box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
+        
+        /* Game UI */
+        #game-ui { display: none; flex-direction: column; align-items: center; width: 100%; }
+        #turn-indicator { margin-top: 10px; font-size: 18px; font-weight: bold; padding: 10px 25px; border-radius: 25px; background-color: #f2e3c6; color: #111; transition: 0.3s; box-shadow: 0 4px 10px rgba(0,0,0,0.5); }
         .scoreboard { margin-top: 10px; display: flex; gap: 20px; font-size: 16px; font-weight: bold; background-color: rgba(0, 0, 0, 0.5); padding: 10px 20px; border-radius: 20px; }
-        .score-white { color: #eeeeee; }
-        .score-black { color: #aaaaaa; }
-        .game-container { position: relative; margin-top: 15px; }
+        .score-white { color: #eeeeee; } .score-black { color: #aaaaaa; }
+        #status-msg { height: 20px; color: #ffeb3b; font-weight: bold; margin-top: 5px; font-size: 14px; text-shadow: 1px 1px 2px black; }
+        
+        .game-container { position: relative; margin-top: 5px; }
         canvas { background-color: #e6b981; border: 15px solid #4a2f1d; border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.8); touch-action: none; }
+        
         #game-over { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.8); border-radius: 15px; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 20; backdrop-filter: blur(4px); }
         #game-over h2 { font-size: 32px; margin-bottom: 20px; text-shadow: 0 2px 5px rgba(0,0,0,0.5); }
-        #game-over button { padding: 12px 25px; font-size: 18px; font-weight: bold; border-radius: 25px; border: none; background-color: #4caf50; color: white; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.5); }
+        #game-over button { padding: 12px 25px; font-size: 18px; font-weight: bold; border-radius: 25px; border: none; background-color: #4caf50; color: white; cursor: pointer; }
+        
         .hidden { display: none !important; }
-        .controls { margin-top: 15px; display: flex; flex-direction: column; align-items: center; width: 300px; }
+        .controls { margin-top: 10px; display: flex; flex-direction: column; align-items: center; width: 300px; position: relative; }
         .controls label { font-size: 14px; margin-bottom: 5px; color: #ccc; }
-        input[type=range] { width: 100%; cursor: pointer; }
+        input[type=range] { width: 100%; cursor: pointer; margin-bottom: 10px; }
+        #powder-btn { padding: 8px 20px; border-radius: 15px; border: none; background-color: #00bcd4; color: white; font-weight: bold; cursor: pointer; box-shadow: 0 2px 5px rgba(0,0,0,0.5); }
     </style>
 </head>
 <body>
     <button id="back-btn" onclick="window.location.href='../index.html'">🔙 Phone</button>
-    <div id="turn-indicator">⚪ Player 1 (Bottom)</div>
-    <div class="scoreboard">
-        <div class="score-white">⚪ P1: <span id="score-w">0</span>/9</div>
-        <div class="score-black">⚫ P2: <span id="score-b">0</span>/9</div>
+    
+    <div id="main-menu">
+        <h1>Carrom Pool</h1>
+        <button onclick="startGame(1)">🤖 1 Player (vs AI)</button>
+        <button onclick="startGame(2)">🧑‍🤝‍🧑 2 Players (PvP)</button>
     </div>
-    <div class="game-container">
-        <canvas id="gameCanvas" width="340" height="340"></canvas>
-        <div id="game-over" class="hidden">
-            <h2 id="winner-text">Player 1 Wins! 🎉</h2>
-            <button onclick="location.reload()">🔄 Play Again</button>
+
+    <div id="game-ui">
+        <div id="turn-indicator">⚪ Player 1 (Bottom)</div>
+        <div class="scoreboard">
+            <div class="score-white">⚪ P1: <span id="score-w">0</span>/9</div>
+            <div class="score-black">⚫ P2: <span id="score-b">0</span>/9</div>
         </div>
-    </div>
-    <div class="controls">
-        <label>Slide to position Striker</label>
-        <input type="range" id="striker-slider" min="60" max="280" value="170">
+        <div id="status-msg">Let's Play!</div>
+        
+        <div class="game-container">
+            <canvas id="gameCanvas" width="340" height="340"></canvas>
+            <div id="game-over" class="hidden">
+                <h2 id="winner-text">Player 1 Wins! 🎉</h2>
+                <button onclick="location.reload()">🔄 Play Again</button>
+            </div>
+        </div>
+
+        <div class="controls">
+            <label>Slide to position Striker</label>
+            <input type="range" id="striker-slider" min="60" max="280" value="170">
+            <button id="powder-btn" onclick="applyPowder()">❄️ Sprinkle Powder</button>
+        </div>
     </div>
 
     <script>
@@ -46,33 +71,33 @@
         const ctx = canvas.getContext("2d");
         const slider = document.getElementById("striker-slider");
         const turnIndicator = document.getElementById("turn-indicator");
+        const statusMsg = document.getElementById("status-msg");
         const gameOverScreen = document.getElementById("game-over");
         const winnerText = document.getElementById("winner-text");
 
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         function playSound(type) {
             if (audioCtx.state === 'suspended') audioCtx.resume();
-            const osc = audioCtx.createOscillator();
-            const gain = audioCtx.createGain();
-            osc.connect(gain);
-            gain.connect(audioCtx.destination);
-            
+            const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain();
+            osc.connect(gain); gain.connect(audioCtx.destination);
             if (type === 'hit') {
-                osc.type = 'triangle'; osc.frequency.setValueAtTime(400, audioCtx.currentTime);
-                osc.frequency.exponentialRampToValueAtTime(100, audioCtx.currentTime + 0.05);
+                osc.type = 'triangle'; osc.frequency.setValueAtTime(400, audioCtx.currentTime); osc.frequency.exponentialRampToValueAtTime(100, audioCtx.currentTime + 0.05);
                 gain.gain.setValueAtTime(0.5, audioCtx.currentTime); gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.05);
                 osc.start(); osc.stop(audioCtx.currentTime + 0.05);
             } else if (type === 'pocket') {
-                osc.type = 'sine'; osc.frequency.setValueAtTime(200, audioCtx.currentTime);
-                osc.frequency.exponentialRampToValueAtTime(50, audioCtx.currentTime + 0.15);
+                osc.type = 'sine'; osc.frequency.setValueAtTime(200, audioCtx.currentTime); osc.frequency.exponentialRampToValueAtTime(50, audioCtx.currentTime + 0.15);
                 gain.gain.setValueAtTime(0.8, audioCtx.currentTime); gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.15);
                 osc.start(); osc.stop(audioCtx.currentTime + 0.15);
             }
         }
-
-        const friction = 0.98, restitution = 0.85, boardSize = canvas.width, pocketRadius = 22, maxScore = 9; 
+        const baseFriction = 0.98, powderFriction = 0.995, restitution = 0.85;
+        const boardSize = canvas.width, pocketRadius = 22, maxScore = 9; 
+        
+        let gameMode = 2; // 1 = vs AI, 2 = PvP
+        let currentFriction = baseFriction;
         let isDragging = false, dragStartX, dragStartY, scoreWhite = 0, scoreBlack = 0, gameIsOver = false;
         let currentPlayer = 1, shotTaken = false, pocketedThisTurn = false, isStrikerFoul = false; 
+        let queenPocketedBy = 0, queenCovered = false;
 
         class Piece {
             constructor(x, y, radius, color, mass, type) {
@@ -84,12 +109,11 @@
                 ctx.shadowColor = "rgba(0,0,0,0.4)"; ctx.shadowBlur = 4; ctx.shadowOffsetX = 2; ctx.shadowOffsetY = 2;
                 ctx.beginPath(); ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2); ctx.fillStyle = this.color; ctx.fill();
                 ctx.shadowColor = "transparent";
-                ctx.beginPath(); ctx.arc(this.x, this.y, this.radius * 0.6, 0, Math.PI * 2);
-                ctx.strokeStyle = "rgba(0,0,0,0.4)"; ctx.lineWidth = 1; ctx.stroke();
+                ctx.beginPath(); ctx.arc(this.x, this.y, this.radius * 0.6, 0, Math.PI * 2); ctx.strokeStyle = "rgba(0,0,0,0.4)"; ctx.lineWidth = 1; ctx.stroke();
             }
             update() {
                 if (!this.active) return;
-                this.x += this.vx; this.y += this.vy; this.vx *= friction; this.vy *= friction;
+                this.x += this.vx; this.y += this.vy; this.vx *= currentFriction; this.vy *= currentFriction;
                 if (Math.abs(this.vx) < 0.08) this.vx = 0; if (Math.abs(this.vy) < 0.08) this.vy = 0;
 
                 let bounced = false;
@@ -105,26 +129,28 @@
                 for (let hole of holes) {
                     if (Math.sqrt((this.x - hole.x)**2 + (this.y - hole.y)**2) < pocketRadius) {
                         this.active = false; this.vx = 0; this.vy = 0; playSound('pocket'); 
-                        if (this.type === "white") {
-                            if (currentPlayer === 1) pocketedThisTurn = true; 
-                            scoreWhite++; document.getElementById("score-w").innerText = scoreWhite; checkWin();
-                        } else if (this.type === "black") {
-                            if (currentPlayer === 2) pocketedThisTurn = true; 
-                            scoreBlack++; document.getElementById("score-b").innerText = scoreBlack; checkWin();
-                        } else if (this.type === "striker") {
-                            isStrikerFoul = true; 
-                            if (currentPlayer === 1) { scoreWhite = Math.max(0, scoreWhite - 1); document.getElementById("score-w").innerText = scoreWhite; } 
-                            else { scoreBlack = Math.max(0, scoreBlack - 1); document.getElementById("score-b").innerText = scoreBlack; }
-                        }
+                        if (this.type === "queen") {
+                            queenPocketedBy = currentPlayer;
+                            statusMsg.innerText = "👑 Queen Pocketed! Cover it!"; statusMsg.style.color = "#ff3333";
+                        } 
+                        else if (this.type === "white") {
+                            if (currentPlayer === 1) { pocketedThisTurn = true; if (queenPocketedBy === 1) queenCovered = true; }
+                            scoreWhite++; updateScore();
+                        } 
+                        else if (this.type === "black") {
+                            if (currentPlayer === 2) { pocketedThisTurn = true; if (queenPocketedBy === 2) queenCovered = true; }
+                            scoreBlack++; updateScore();
+                        } 
+                        else if (this.type === "striker") { isStrikerFoul = true; }
                     }
                 }
             }
         }
+
         let pieces = [];
         const cx = boardSize / 2, cy = boardSize / 2, coinRadius = 11; 
-        const striker = new Piece(cx, boardSize - 50, 15, "#ffffff", 2.5, "striker");
-        pieces.push(striker);
-        pieces.push(new Piece(cx, cy, coinRadius, "#ff3333", 1, "queen"));
+        const striker = new Piece(cx, boardSize - 50, 15, "#ffffff", 2.5, "striker"); pieces.push(striker);
+        let queen = new Piece(cx, cy, coinRadius, "#ff3333", 1, "queen"); pieces.push(queen);
         
         for (let i = 0; i < 6; i++) {
             let angle = (Math.PI / 3) * i; 
@@ -144,12 +170,8 @@
             ctx.beginPath(); ctx.arc(cx, cy, 65, 0, Math.PI * 2); ctx.stroke();
             ctx.beginPath(); ctx.arc(cx, cy, 10, 0, Math.PI * 2); ctx.fillStyle = "#4a2f1d"; ctx.fill();
             ctx.lineWidth = 1.5;
-            ctx.strokeRect(50, boardSize - 60, boardSize - 100, 20);
-            ctx.beginPath(); ctx.arc(50, boardSize - 50, 10, 0, Math.PI * 2); ctx.fillStyle = "#ff3333"; ctx.fill();
-            ctx.beginPath(); ctx.arc(boardSize - 50, boardSize - 50, 10, 0, Math.PI * 2); ctx.fill();
-            ctx.strokeRect(50, 40, boardSize - 100, 20);
-            ctx.beginPath(); ctx.arc(50, 50, 10, 0, Math.PI * 2); ctx.fill();
-            ctx.beginPath(); ctx.arc(boardSize - 50, 50, 10, 0, Math.PI * 2); ctx.fill();
+            ctx.strokeRect(50, boardSize - 60, boardSize - 100, 20); ctx.beginPath(); ctx.arc(50, boardSize - 50, 10, 0, Math.PI * 2); ctx.fillStyle = "#ff3333"; ctx.fill(); ctx.beginPath(); ctx.arc(boardSize - 50, boardSize - 50, 10, 0, Math.PI * 2); ctx.fill();
+            ctx.strokeRect(50, 40, boardSize - 100, 20); ctx.beginPath(); ctx.arc(50, 50, 10, 0, Math.PI * 2); ctx.fill(); ctx.beginPath(); ctx.arc(boardSize - 50, 50, 10, 0, Math.PI * 2); ctx.fill();
         }
 
         function checkCollisions() {
@@ -157,23 +179,15 @@
                 for (let j = i + 1; j < pieces.length; j++) {
                     let p1 = pieces[i], p2 = pieces[j];
                     if (!p1.active || !p2.active) continue;
-                    
                     let dx = p2.x - p1.x, dy = p2.y - p1.y, distance = Math.sqrt(dx * dx + dy * dy);
-                    
                     if (distance < p1.radius + p2.radius) {
                         let overlap = (p1.radius + p2.radius) - distance, nx = dx / distance, ny = dy / distance;
-                        
                         let totalMass = p1.mass + p2.mass;
-                        p1.x -= nx * overlap * (p2.mass / totalMass);
-                        p1.y -= ny * overlap * (p2.mass / totalMass);
-                        p2.x += nx * overlap * (p1.mass / totalMass);
-                        p2.y += ny * overlap * (p1.mass / totalMass);
-
+                        p1.x -= nx * overlap * (p2.mass / totalMass); p1.y -= ny * overlap * (p2.mass / totalMass);
+                        p2.x += nx * overlap * (p1.mass / totalMass); p2.y += ny * overlap * (p1.mass / totalMass);
                         let velAlongNormal = (p2.vx - p1.vx) * nx + (p2.vy - p1.vy) * ny;
                         if (velAlongNormal > 0) continue;
-                        
                         if (Math.abs(velAlongNormal) > 0.5) playSound('hit');
-                        
                         let j_impulse = -(1 + restitution) * velAlongNormal / (1/p1.mass + 1/p2.mass);
                         p1.vx -= (j_impulse * nx) / p1.mass; p1.vy -= (j_impulse * ny) / p1.mass;
                         p2.vx += (j_impulse * nx) / p2.mass; p2.vy += (j_impulse * ny) / p2.mass;
@@ -183,30 +197,122 @@
         }
 
         function isBoardStill() { return pieces.every(p => Math.abs(p.vx) === 0 && Math.abs(p.vy) === 0); }
-        
+        function updateScore() {
+            document.getElementById("score-w").innerText = scoreWhite; document.getElementById("score-b").innerText = scoreBlack;
+            if (scoreWhite >= maxScore) { winnerText.innerText = "⚪ Player 1 Wins! 🎉"; gameOverScreen.classList.remove("hidden"); gameIsOver = true; } 
+            else if (scoreBlack >= maxScore) { winnerText.innerText = (gameMode === 1) ? "🤖 Computer Wins!" : "⚫ Player 2 Wins!"; gameOverScreen.classList.remove("hidden"); gameIsOver = true; }
+        }
+        function applyPowder() {
+            if (!isBoardStill() || (gameMode === 1 && currentPlayer === 2)) return;
+            currentFriction = powderFriction; statusMsg.innerText = "❄️ Powder applied!"; statusMsg.style.color = "#00bcd4";
+        }
+
+        function respawnCoin(typeToRespawn) {
+            let coin = pieces.find(p => p.type === typeToRespawn && !p.active);
+            if (coin) { coin.active = true; coin.x = cx + (Math.random() * 10 - 5); coin.y = cy + (Math.random() * 10 - 5); coin.vx = 0; coin.vy = 0; }
+        }
+
+        function manageTurnsAndRules() {
+            if (isStrikerFoul) {
+                statusMsg.innerText = "🚨 FOUL! Coin returned!"; statusMsg.style.color = "#ffaa00";
+                if (currentPlayer === 1 && scoreWhite > 0) { scoreWhite--; respawnCoin("white"); }
+                else if (currentPlayer === 2 && scoreBlack > 0) { scoreBlack--; respawnCoin("black"); }
+                updateScore(); switchTurn();
+            } 
+            else if (queenPocketedBy === currentPlayer && !queenCovered) {
+                if (!pocketedThisTurn) {
+                    statusMsg.innerText = "❌ Queen returned."; statusMsg.style.color = "#ff3333";
+                    queenPocketedBy = 0; queen.active = true; queen.x = cx; queen.y = cy; queen.vx = 0; queen.vy = 0;
+                    switchTurn();
+                } else {
+                    statusMsg.innerText = "✅ Queen Covered!"; statusMsg.style.color = "#4caf50";
+                    if (currentPlayer === 1) scoreWhite += 3; else scoreBlack += 3;
+                    updateScore();
+                }
+            } 
+            else if (!pocketedThisTurn) { switchTurn(); } 
+            else { statusMsg.innerText = "Nice shot! Shoot again."; statusMsg.style.color = "#4caf50"; }
+
+            pocketedThisTurn = false; isStrikerFoul = false; shotTaken = false; 
+            currentFriction = baseFriction; resetStriker(); 
+            
+            // Trigger AI Bot if it's the computer's turn
+            if (gameMode === 1 && currentPlayer === 2 && !gameIsOver) {
+                setTimeout(playAITurn, 1000); // AI waits 1 second before playing
+            }
+        }
+
         function switchTurn() {
             currentPlayer = currentPlayer === 1 ? 2 : 1;
-            turnIndicator.innerText = currentPlayer === 1 ? "⚪ Player 1 (Bottom)" : "⚫ Player 2 (Top)";
+            if (gameMode === 1 && currentPlayer === 2) {
+                turnIndicator.innerText = "🤖 Computer is thinking...";
+            } else {
+                turnIndicator.innerText = currentPlayer === 1 ? "⚪ Player 1 (Bottom)" : "⚫ Player 2 (Top)";
+            }
             turnIndicator.style.backgroundColor = currentPlayer === 1 ? "#f2e3c6" : "#222222";
             turnIndicator.style.color = currentPlayer === 1 ? "#111" : "#fff";
             slider.value = 170; 
+            if (statusMsg.innerText === "Nice shot! Shoot again.") statusMsg.innerText = "Let's Play!";
         }
         
         function resetStriker() {
-            striker.x = parseInt(slider.value); 
-            striker.y = (currentPlayer === 1) ? (boardSize - 50) : 50; 
+            striker.x = parseInt(slider.value); striker.y = (currentPlayer === 1) ? (boardSize - 50) : 50; 
             striker.vx = 0; striker.vy = 0; striker.active = true;
         }
 
-        function checkWin() {
-            if (scoreWhite >= maxScore) { winnerText.innerText = "⚪ Player 1 Wins! 🎉"; gameOverScreen.classList.remove("hidden"); gameIsOver = true; } 
-            else if (scoreBlack >= maxScore) { winnerText.innerText = "⚫ Player 2 Wins! 🎉"; gameOverScreen.classList.remove("hidden"); gameIsOver = true; }
+        // --- NEW: The Computer AI Bot ---
+        function playAITurn() {
+            if (gameIsOver) return;
+            
+            // Find targets (Black coins, or Queen if nobody has pocketed it)
+            let targets = pieces.filter(p => p.active && (p.type === "black" || (p.type === "queen" && queenPocketedBy === 0)));
+            if (targets.length === 0) { switchTurn(); return; }
+
+            // Pick a random target coin
+            let target = targets[Math.floor(Math.random() * targets.length)];
+
+            // Slide striker to a random spot on the top line
+            let randomX = 70 + Math.random() * 200;
+            slider.value = randomX;
+            resetStriker();
+
+            // Wait 1 second to aim, then shoot!
+            setTimeout(() => {
+                if(gameIsOver) return;
+                
+                // Calculate angle to target
+                let dx = target.x - striker.x;
+                let dy = target.y - striker.y;
+                let angle = Math.atan2(dy, dx);
+
+                // Add slight imperfection so the bot isn't perfectly flawless
+                angle += (Math.random() - 0.5) * 0.1;
+                
+                // Random power
+                let power = 40 + Math.random() * 40; 
+
+                striker.vx = Math.cos(angle) * power * 0.15;
+                striker.vy = Math.sin(angle) * power * 0.15;
+                shotTaken = true;
+                
+                if (audioCtx.state === 'suspended') audioCtx.resume();
+            }, 1000);
+        }
+
+        // Starts the game from the main menu
+        function startGame(mode) {
+            gameMode = mode;
+            document.getElementById("main-menu").classList.add("hidden");
+            document.getElementById("game-ui").style.display = "flex";
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            gameLoop();
         }
 
         slider.addEventListener("input", function() {
+            // Disable sliding if it is the Computer's turn
+            if (gameMode === 1 && currentPlayer === 2) return;
             if (striker.active && isBoardStill() && !gameIsOver) { 
-                striker.x = parseInt(this.value); 
-                striker.y = (currentPlayer === 1) ? (boardSize - 50) : 50; 
+                striker.x = parseInt(this.value); striker.y = (currentPlayer === 1) ? (boardSize - 50) : 50; 
             }
         });
 
@@ -214,7 +320,8 @@
             if (gameIsOver) return; 
             ctx.clearRect(0, 0, canvas.width, canvas.height); drawBoard();
             
-            if (isDragging && striker.active) {
+            // Draw Aiming Line (Only for human players)
+            if (isDragging && striker.active && !(gameMode === 1 && currentPlayer === 2)) {
                 ctx.shadowColor = "transparent"; ctx.beginPath(); ctx.moveTo(striker.x, striker.y);
                 ctx.lineTo(striker.x + (striker.x - dragStartX) * 2, striker.y + (striker.y - dragStartY) * 2);
                 ctx.strokeStyle = "rgba(255, 255, 255, 0.8)"; ctx.lineWidth = 4; ctx.setLineDash([8, 8]); ctx.stroke(); ctx.setLineDash([]); 
@@ -222,20 +329,15 @@
             
             pieces.forEach(p => p.update()); checkCollisions(); pieces.forEach(p => p.draw());
 
-            if (shotTaken && isBoardStill()) {
-                if (!pocketedThisTurn || isStrikerFoul) switchTurn();
-                pocketedThisTurn = false; isStrikerFoul = false; shotTaken = false; resetStriker(); 
-            }
+            if (shotTaken && isBoardStill()) { manageTurnsAndRules(); }
             requestAnimationFrame(gameLoop);
         }
 
-        function getMousePos(e) {
-            const rect = canvas.getBoundingClientRect();
-            return { x: (e.touches ? e.touches[0].clientX : e.clientX) - rect.left, y: (e.touches ? e.touches[0].clientY : e.clientY) - rect.top };
-        }
-
+        function getMousePos(e) { const rect = canvas.getBoundingClientRect(); return { x: (e.touches ? e.touches[0].clientX : e.clientX) - rect.left, y: (e.touches ? e.touches[0].clientY : e.clientY) - rect.top }; }
+        
         function startDrag(e) {
-            if (!striker.active || !isBoardStill() || gameIsOver) return;
+            // Block touching if it is the Computer's turn!
+            if (!striker.active || !isBoardStill() || gameIsOver || (gameMode === 1 && currentPlayer === 2)) return;
             e.preventDefault(); if (audioCtx.state === 'suspended') audioCtx.resume();
             const pos = getMousePos(e);
             if (Math.sqrt((pos.x - striker.x)**2 + (pos.y - striker.y)**2) <= striker.radius * 2) { isDragging = true; dragStartX = pos.x; dragStartY = pos.y; }
@@ -254,7 +356,6 @@
         canvas.addEventListener("mousemove", drag); canvas.addEventListener("touchmove", drag, {passive: false});
         canvas.addEventListener("mouseup", endDrag); canvas.addEventListener("touchend", endDrag);
 
-        gameLoop();
     </script>
 </body>
 </html>
