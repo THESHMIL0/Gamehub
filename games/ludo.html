@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Ludo Pro</title>
+    <style>
+        body { margin: 0; padding: 0; background-color: #111; display: flex; flex-direction: column; justify-content: center; align-items: center; height: 100vh; color: white; font-family: 'Segoe UI', Tahoma, sans-serif; overflow: hidden; }
+        #back-btn { position: absolute; top: 15px; left: 15px; padding: 8px 15px; background-color: rgba(255, 255, 255, 0.2); color: white; border: none; border-radius: 20px; font-weight: bold; cursor: pointer; z-index: 50; }
+        
+        /* Menus */
+        .screen { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background-color: #111; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 40; }
+        .screen h1 { font-size: 40px; color: #ffeb3b; margin-bottom: 20px; text-shadow: 0 4px 10px rgba(0,0,0,0.5); text-align: center; }
+        .screen button { margin: 10px; padding: 15px 30px; font-size: 16px; border-radius: 30px; border: none; background-color: #2196f3; color: white; font-weight: bold; width: 220px; box-shadow: 0 4px 10px rgba(0,0,0,0.3); transition: 0.2s; }
+        .screen button:active { transform: scale(0.95); }
+        .hidden { display: none !important; }
+
+        /* Game UI */
+        #game-ui { z-index: 10; display: flex; flex-direction: column; align-items: center; width: 100%; padding-top: 50px; }
+        #turn-indicator { margin-bottom: 10px; font-size: 18px; font-weight: bold; padding: 8px 20px; border-radius: 20px; background-color: #f44336; color: white; transition: 0.3s; box-shadow: 0 0 15px rgba(244, 67, 54, 0.6); } /* Glowing effect */
+        
+        canvas { background-color: #fff; border: 8px solid #333; border-radius: 10px; box-shadow: 0 10px 20px rgba(0,0,0,0.6); touch-action: none; }
+        
+        /* 3D Dice Animation */
+        .dice-container { margin-top: 15px; display: flex; flex-direction: column; align-items: center; }
+        #dice-btn { width: 60px; height: 60px; font-size: 30px; border-radius: 10px; background: white; color: black; border: 3px solid #ccc; font-weight: bold; cursor: pointer; display: flex; justify-content: center; align-items: center; box-shadow: 0 5px 15px rgba(0,0,0,0.5); transition: transform 0.1s; }
+        .dice-rolling { animation: rollDiceAnim 0.4s infinite; }
+        @keyframes rollDiceAnim { 0% { transform: rotate(0deg) scale(1); } 25% { transform: rotate(-20deg) scale(1.1); } 50% { transform: rotate(0deg) scale(1); } 75% { transform: rotate(20deg) scale(1.1); } 100% { transform: rotate(0deg) scale(1); } }
+        
+        #game-msg { margin-top: 10px; font-size: 14px; font-weight: bold; color: #ffeb3b; height: 20px; }
+    </style>
+</head>
+<body>
+    <button id="back-btn" onclick="window.location.href='../index.html'">🔙 Phone</button>
+
+    <div id="main-menu" class="screen">
+        <h1>🎲 Ludo King</h1>
+        <button onclick="startGame(1)">🤖 1 Player (vs AI)</button>
+        <button onclick="startGame(2)">🧑‍🤝‍🧑 2 Players (Local)</button>
+    </div>
+
+    <div id="win-screen" class="screen hidden">
+        <h1 id="win-text">Red Wins!</h1>
+        <button onclick="location.reload()">Main Menu</button>
+    </div>
+
+    <div id="game-ui" class="hidden">
+        <div id="turn-indicator">Red's Turn</div>
+        <canvas id="gameCanvas" width="300" height="300"></canvas>
+        <div class="dice-container">
+            <button id="dice-btn" onclick="rollDice()">🎲</button>
+            <div id="game-msg">Roll the dice to start!</div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById("gameCanvas");
+        const ctx = canvas.getContext("2d");
+        const diceBtn = document.getElementById("dice-btn");
+        const turnIndicator = document.getElementById("turn-indicator");
+        const gameMsg = document.getElementById("game-msg");
+
+        const cellSize = canvas.width / 15; // Ludo is a 15x15 grid
+        let gameMode = 2; 
+
+        // THE MASTER PATH MAPPING (52 perimeter steps)
+        const path = [
+            [1,6],[2,6],[3,6],[4,6],[5,6], [6,5],[6,4],[6,3],[6,2],[6,1],[6,0],
+            [7,0],[8,0], [8,1],[8,2],[8,3],[8,4],[8,5], [9,6],[10,6],[11,6],[12,6],[13,6],[14,6],
+            [14,7],[14,8], [13,8],[12,8],[11,8],[10,8],[9,8], [8,9],[8,10],[8,11],[8,12],[8,13],[8,14],
+            [7,14],[6,14], [6,13],[6,12],[6,11],[6,10],[6,9], [5,8],[4,8],[3,8],[2,8],[1,8],[0,8],
+            [0,7],[0,6]
+        ];
+
+        const safeZones = [0, 8, 13, 21, 26, 34, 39, 47]; // Start squares and star squares
+
+        // Home Paths (5 steps into the center triangle)
+        const redHome = [[1,7],[2,7],[3,7],[4,7],[5,7]];
+        const yellowHome = [[13,7],[12,7],[11,7],[10,7],[9,7]];
+
+        // Yard Coordinates (Where tokens sit when locked)
+        const redYard = [[2,2], [3,2], [2,3], [3,3]];
+        const yellowYard = [[11,11], [12,11], [11,12], [12,12]];
+        function drawBoard() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Draw 4 Yards
+            ctx.fillStyle = "#f44336"; ctx.fillRect(0, 0, cellSize*6, cellSize*6); // Red
+            ctx.fillStyle = "#4caf50"; ctx.fillRect(cellSize*9, 0, cellSize*6, cellSize*6); // Green
+            ctx.fillStyle = "#ffeb3b"; ctx.fillRect(cellSize*9, cellSize*9, cellSize*6, cellSize*6); // Yellow
+            ctx.fillStyle = "#2196f3"; ctx.fillRect(0, cellSize*9, cellSize*6, cellSize*6); // Blue
+
+            // Draw Inner White Boxes for Yards
+            ctx.fillStyle = "#fff";
+            ctx.fillRect(cellSize, cellSize, cellSize*4, cellSize*4);
+            ctx.fillRect(cellSize*10, cellSize, cellSize*4, cellSize*4);
+            ctx.fillRect(cellSize*10, cellSize*10, cellSize*4, cellSize*4);
+            ctx.fillRect(cellSize, cellSize*10, cellSize*4, cellSize*4);
+
+            // Draw Center Home Triangle Area
+            ctx.fillStyle = "#333"; ctx.fillRect(cellSize*6, cellSize*6, cellSize*3, cellSize*3);
+            
+            // Draw the 52 perimeter path cells
+            ctx.strokeStyle = "#ccc"; ctx.lineWidth = 1;
+            for (let i = 0; i < path.length; i++) {
+                ctx.fillStyle = safeZones.includes(i) ? "#e0e0e0" : "#fff";
+                ctx.fillRect(path[i][0]*cellSize, path[i][1]*cellSize, cellSize, cellSize);
+                ctx.strokeRect(path[i][0]*cellSize, path[i][1]*cellSize, cellSize, cellSize);
+            }
+
+            // Draw Red & Yellow Home Paths
+            for (let i=0; i<5; i++) {
+                ctx.fillStyle = "#ffcdd2"; ctx.fillRect(redHome[i][0]*cellSize, redHome[i][1]*cellSize, cellSize, cellSize); ctx.strokeRect(redHome[i][0]*cellSize, redHome[i][1]*cellSize, cellSize, cellSize);
+                ctx.fillStyle = "#fff9c4"; ctx.fillRect(yellowHome[i][0]*cellSize, yellowHome[i][1]*cellSize, cellSize, cellSize); ctx.strokeRect(yellowHome[i][0]*cellSize, yellowHome[i][1]*cellSize, cellSize, cellSize);
+            }
+        }
+
+        class Token {
+            constructor(id, color, yardCoords, offset, homePath) {
+                this.id = id; this.color = color;
+                this.yardX = yardCoords[0] * cellSize + cellSize/2;
+                this.yardY = yardCoords[1] * cellSize + cellSize/2;
+                this.x = this.yardX; this.y = this.yardY;
+                
+                this.state = "yard"; // 'yard', 'active', 'home', 'finished'
+                this.pos = -1; // 0 to 50 on the main path relative to their start
+                this.offset = offset; // Red starts at index 0, Yellow at 26
+                this.homePath = homePath;
+                this.pathQueue = []; // For smooth hopping animation
+            }
+
+            draw() {
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, cellSize/2.5, 0, Math.PI * 2);
+                ctx.fillStyle = this.color; ctx.fill();
+                ctx.strokeStyle = "#fff"; ctx.lineWidth = 2; ctx.stroke();
+                
+                // Add a glowing effect if it's this token's turn to move!
+                if (this.pathQueue.length > 0) {
+                    ctx.shadowColor = this.color; ctx.shadowBlur = 10; ctx.stroke(); ctx.shadowBlur = 0;
+                }
+            }
+
+            update() {
+                if (this.pathQueue.length > 0) {
+                    let targetX = this.pathQueue[0].x;
+                    let targetY = this.pathQueue[0].y;
+                    
+                    let dx = targetX - this.x; let dy = targetY - this.y;
+                    this.x += dx * 0.2; this.y += dy * 0.2;
+
+                    if (Math.abs(dx) < 2 && Math.abs(dy) < 2) {
+                        this.x = targetX; this.y = targetY;
+                        this.pathQueue.shift();
+                        
+                        // Once finished moving, check for captures!
+                        if (this.pathQueue.length === 0) checkCapturesAndWin();
+                    }
+                }
+            }
+        }
+        let tokens = [];
+        let currentPlayer = 0; // 0 = Red, 1 = Yellow
+        let currentRoll = 0;
+        let isAnimating = false;
+        let rollPending = false;
+
+        function startGame(mode) {
+            gameMode = mode;
+            // Giving each player 2 tokens to start so it fits well on a phone screen!
+            tokens = [
+                new Token("R1", "#f44336", redYard[0], 0, redHome),
+                new Token("R2", "#f44336", redYard[1], 0, redHome),
+                new Token("Y1", "#ffeb3b", yellowYard[0], 26, yellowHome),
+                new Token("Y2", "#ffeb3b", yellowYard[1], 26, yellowHome)
+            ];
+            
+            document.getElementById("main-menu").classList.add("hidden");
+            document.getElementById("game-ui").classList.remove("hidden");
+            updateTurnUI();
+            requestAnimationFrame(gameLoop);
+        }
+
+        function rollDice() {
+            if (isAnimating || rollPending || (gameMode === 1 && currentPlayer === 1)) return;
+            executeRoll();
+        }
+
+        function executeRoll() {
+            rollPending = true;
+            diceBtn.classList.add("dice-rolling");
+            
+            setTimeout(() => {
+                diceBtn.classList.remove("dice-rolling");
+                currentRoll = Math.floor(Math.random() * 6) + 1;
+                diceBtn.innerText = currentRoll;
+                
+                gameMsg.innerText = `Rolled a ${currentRoll}! Select a token to move.`;
+                
+                // If AI's turn, make it move automatically
+                if (gameMode === 1 && currentPlayer === 1) {
+                    setTimeout(playAITurn, 1000);
+                }
+            }, 500);
+        }
+
+        // TAPPING TOKENS LOGIC
+        canvas.addEventListener("mousedown", handleTap);
+        canvas.addEventListener("touchstart", handleTap, {passive: false});
+
+        function handleTap(e) {
+            if (isAnimating || !rollPending || (gameMode === 1 && currentPlayer === 1)) return;
+            e.preventDefault();
+            
+            const rect = canvas.getBoundingClientRect();
+            const tapX = (e.touches ? e.touches[0].clientX : e.clientX) - rect.left;
+            const tapY = (e.touches ? e.touches[0].clientY : e.clientY) - rect.top;
+
+            // Find which token was tapped
+            let activeColor = currentPlayer === 0 ? "#f44336" : "#ffeb3b";
+            for (let t of tokens) {
+                if (t.color === activeColor) {
+                    let dist = Math.sqrt((tapX - t.x)**2 + (tapY - t.y)**2);
+                    if (dist < cellSize) {
+                        moveToken(t);
+                        return;
+                    }
+                }
+            }
+        }
+
+        function moveToken(token) {
+            // Rule: Need a 6 to get out of the yard
+            if (token.state === "yard") {
+                if (currentRoll === 6) {
+                    token.state = "active";
+                    token.pos = 0;
+                    queuePath(token, 0);
+                } else {
+                    gameMsg.innerText = "Need a 6 to unlock! Turn skipped.";
+                    switchTurn();
+                }
+                return;
+            }
+
+            if (token.state === "active") {
+                if (token.pos + currentRoll > 56) {
+                    gameMsg.innerText = "Need exact roll to enter finish! Turn skipped.";
+                    switchTurn();
+                    return;
+                }
+                
+                let startPos = token.pos;
+                token.pos += currentRoll;
+                
+                // Animate hopping cell by cell
+                for (let i = startPos + 1; i <= token.pos; i++) {
+                    queuePath(token, i);
+                }
+            }
+        }
+
+        function queuePath(token, relPos) {
+            isAnimating = true;
+            if (relPos < 51) {
+                // On Main Perimeter
+                let actualIndex = (relPos + token.offset) % 52;
+                token.pathQueue.push({x: path[actualIndex][0]*cellSize + cellSize/2, y: path[actualIndex][1]*cellSize + cellSize/2});
+            } else if (relPos < 56) {
+                // In Home Column
+                token.state = "home";
+                let homeIndex = relPos - 51;
+                token.pathQueue.push({x: token.homePath[homeIndex][0]*cellSize + cellSize/2, y: token.homePath[homeIndex][1]*cellSize + cellSize/2});
+            } else if (relPos === 56) {
+                // Finished! Move to center triangle
+                token.state = "finished";
+                token.pathQueue.push({x: cellSize*7.5, y: cellSize*7.5});
+            }
+        }
+
+        function checkCapturesAndWin() {
+            let activeColor = currentPlayer === 0 ? "#f44336" : "#ffeb3b";
+            let enemyColor = currentPlayer === 0 ? "#ffeb3b" : "#f44336";
+            
+            // Get the token that just moved
+            let movedToken = tokens.find(t => t.color === activeColor && t.pathQueue.length === 0 && (t.state === "active" || t.state === "home"));
+            
+            if (movedToken && movedToken.state === "active") {
+                let actualIndex = (movedToken.pos + movedToken.offset) % 52;
+                
+                // Check if it landed on an enemy
+                if (!safeZones.includes(actualIndex)) {
+                    for (let enemy of tokens) {
+                        if (enemy.color === enemyColor && enemy.state === "active") {
+                            let enemyIndex = (enemy.pos + enemy.offset) % 52;
+                            if (enemyIndex === actualIndex) {
+                                // CAPTURE! Send enemy back to yard
+                                gameMsg.innerText = "💥 Token Captured! Extra Turn!";
+                                enemy.state = "yard";
+                                enemy.pos = -1;
+                                enemy.x = enemy.yardX; enemy.y = enemy.yardY;
+                                
+                                isAnimating = false; rollPending = false;
+                                return; // Don't switch turns!
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Check Win Condition
+            let myTokens = tokens.filter(t => t.color === activeColor);
+            if (myTokens.every(t => t.state === "finished")) {
+                document.getElementById("game-ui").classList.add("hidden");
+                document.getElementById("win-screen").classList.remove("hidden");
+                document.getElementById("win-text").innerText = currentPlayer === 0 ? "Red Wins! 🎉" : "Yellow Wins! 🎉";
+                return;
+            }
+
+            // Extra turn for rolling a 6
+            if (currentRoll === 6) {
+                gameMsg.innerText = "Rolled a 6! Extra Turn!";
+                isAnimating = false; rollPending = false;
+                if (gameMode === 1 && currentPlayer === 1) setTimeout(executeRoll, 1000);
+            } else {
+                switchTurn();
+            }
+        }
+
+        function playAITurn() {
+            let myTokens = tokens.filter(t => t.color === "#ffeb3b");
+            
+            // Very simple AI: Prioritize active tokens, then try to unlock
+            let activeTokens = myTokens.filter(t => t.state === "active" || t.state === "home");
+            let yardTokens = myTokens.filter(t => t.state === "yard");
+
+            if (currentRoll === 6 && yardTokens.length > 0) {
+                moveToken(yardTokens[0]);
+            } else if (activeTokens.length > 0) {
+                moveToken(activeTokens[0]);
+            } else {
+                gameMsg.innerText = "No moves available. Turn skipped.";
+                switchTurn();
+            }
+        }
+
+        function switchTurn() {
+            currentPlayer = currentPlayer === 0 ? 1 : 0;
+            isAnimating = false; rollPending = false;
+            
+            let color = currentPlayer === 0 ? "#f44336" : "#ffeb3b";
+            let name = currentPlayer === 0 ? "Red's Turn" : (gameMode === 1 ? "Computer's Turn" : "Yellow's Turn");
+            
+            turnIndicator.innerText = name;
+            turnIndicator.style.backgroundColor = color;
+            turnIndicator.style.boxShadow = `0 0 15px ${color}`;
+
+            if (gameMode === 1 && currentPlayer === 1) {
+                diceBtn.style.opacity = "0.5";
+                setTimeout(executeRoll, 1500);
+            } else {
+                diceBtn.style.opacity = "1";
+                diceBtn.innerText = "🎲";
+                gameMsg.innerText = "Your turn! Roll the dice.";
+            }
+        }
+
+        function gameLoop() {
+            drawBoard();
+            tokens.forEach(t => { t.update(); t.draw(); });
+            requestAnimationFrame(gameLoop);
+        }
+    </script>
+</body>
+</html>
