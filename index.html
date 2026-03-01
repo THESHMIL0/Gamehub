@@ -2,31 +2,35 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>My Phone Gaming Hub</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-    <div class="phone-frame">
+    <div id="power-screen" class="screen">
+        <button id="power-btn" onclick="powerOn()">🔌 Power On</button>
+    </div>
+
+    <div id="phone-ui" class="hidden">
         
         <div class="notch"></div>
         <div class="status-bar">
-            <span>10:35</span> <span>📶 🔋</span> </div>
+            <span id="status-time">--:--</span> <span>📶 🔋</span>
+        </div>
 
         <div id="lock-screen" class="screen">
-            <h1 id="lock-time">10:35</h1>
-            <h2>Enter Pin</h2>
+            <h1 id="lock-time">--:--</h1> <h2>Enter Pin</h2>
             <input type="password" id="password-input" placeholder="****" maxlength="4">
-            <button onclick="checkPassword()">Unlock</button>
+            <button class="unlock-btn" onclick="checkPassword()">Unlock</button>
             <p id="error-message" class="hidden">Wrong pin! 😸</p>
         </div>
 
         <div id="home-screen" class="screen hidden">
             <div class="app-grid">
-                <a href="games/carrom.html" class="app-icon" style="background-color: #ff5722;">Carrom</a>
-                <a href="games/snake.html" class="app-icon" style="background-color: #4caf50;">Snake</a>
-                <a href="games/ludo.html" class="app-icon" style="background-color: #2196f3;">Ludo</a>
+                <a href="game/carrom.html" class="app-icon" style="background-color: #ff5722;">Carrom</a>
+                <a href="game/snake.html" class="app-icon" style="background-color: #4caf50;">Snake</a>
+                <a href="game/ludo.html" class="app-icon" style="background-color: #2196f3;">Ludo</a>
             </div>
         </div>
 
