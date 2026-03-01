@@ -1,53 +1,72 @@
 body {
+    margin: 0;
+    padding: 0;
+    background-color: #000;
+    font-family: Arial, sans-serif;
+    overflow: hidden; /* Stops the screen from scrolling up and down */
+}
+
+/* Power screen styling */
+#power-screen {
+    background-color: #000;
+    color: white;
     display: flex;
     justify-content: center;
     align-items: center;
     height: 100vh;
-    background-color: #1a1a1a; /* Darker background outside the phone */
-    margin: 0;
-    font-family: Arial, sans-serif;
+    width: 100vw;
+    z-index: 100;
 }
 
-.phone-frame {
-    width: 350px;
-    height: 700px;
-    background-color: #000;
-    /* Adding a cool online wallpaper! */
+#power-btn {
+    padding: 15px 30px;
+    font-size: 20px;
+    border-radius: 30px;
+    border: 2px solid white;
+    background-color: transparent;
+    color: white;
+    cursor: pointer;
+    transition: 0.3s;
+}
+
+#power-btn:hover {
+    background-color: white;
+    color: black;
+}
+
+/* Full screen phone UI */
+#phone-ui {
+    width: 100vw;
+    height: 100vh;
     background-image: url('https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=800&auto=format&fit=crop'); 
     background-size: cover;
     background-position: center;
-    border: 14px solid #222;
-    border-radius: 40px;
-    box-shadow: 0 20px 40px rgba(0,0,0,0.5);
-    overflow: hidden; 
     position: relative;
 }
 
-/* The camera cutout */
 .notch {
     position: absolute;
     top: 0;
     left: 50%;
     transform: translateX(-50%);
-    width: 120px;
-    height: 25px;
-    background-color: #222;
-    border-bottom-left-radius: 15px;
-    border-bottom-right-radius: 15px;
+    width: 150px;
+    height: 30px;
+    background-color: #000;
+    border-bottom-left-radius: 20px;
+    border-bottom-right-radius: 20px;
     z-index: 10;
 }
 
-/* The top bar with battery and time */
 .status-bar {
     position: absolute;
-    top: 8px;
+    top: 10px;
     width: 100%;
-    padding: 0 25px;
+    padding: 0 20px;
     box-sizing: border-box;
     display: flex;
     justify-content: space-between;
     color: white;
-    font-size: 12px;
+    font-size: 14px;
     font-weight: bold;
     z-index: 9;
 }
@@ -58,30 +77,29 @@ body {
     display: flex;
     flex-direction: column;
     align-items: center;
-    padding-top: 80px; /* Pushed down so it doesn't hide behind the notch */
+    padding-top: 100px; 
     box-sizing: border-box;
     position: absolute;
     top: 0;
     left: 0;
 }
 
-/* Making the lock screen blurry and dark */
 #lock-screen {
-    background-color: rgba(0, 0, 0, 0.5);
-    backdrop-filter: blur(10px); /* Creates a glass effect */
+    background-color: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(10px);
     color: white;
 }
 
 #lock-time {
-    font-size: 60px;
+    font-size: 70px;
     margin: 20px 0;
     font-weight: normal;
 }
 
 .app-grid {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 20px;
+    grid-template-columns: repeat(4, 1fr); /* Fits nicely across a real phone screen */
+    gap: 15px;
     padding: 20px;
     width: 100%;
     box-sizing: border-box;
@@ -99,10 +117,9 @@ body {
     font-size: 13px;
     font-weight: bold;
     box-shadow: 0 4px 10px rgba(0,0,0,0.3);
-    transition: transform 0.2s; /* Makes the scaling smooth */
+    transition: transform 0.2s;
 }
 
-/* Bounces the app slightly when hovered/tapped */
 .app-icon:hover {
     transform: scale(1.1);
 }
@@ -114,16 +131,16 @@ body {
 #password-input {
     margin: 15px 0;
     padding: 15px;
-    font-size: 18px;
+    font-size: 20px;
     text-align: center;
-    width: 120px;
+    width: 150px;
     border-radius: 10px;
     border: none;
     outline: none;
 }
 
-button {
-    padding: 10px 20px;
+.unlock-btn {
+    padding: 10px 25px;
     font-size: 16px;
     border-radius: 20px;
     border: none;
@@ -135,11 +152,10 @@ button {
 
 #error-message {
     color: #ffaaaa;
-    font-size: 14px;
+    font-size: 16px;
     margin-top: 15px;
 }
 
-/* ANIMATIONS */
 .slide-up {
     animation: slideUpAnim 0.6s ease-in-out forwards;
 }
